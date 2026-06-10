@@ -1,0 +1,9 @@
+allowBuilds:
+  sharp: true
+  unrs-resolver: false
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
+minimumReleaseAgeExclude:
+  - baseline-browser-mapping@2.10.35
+  - electron-to-chromium@1.5.370
