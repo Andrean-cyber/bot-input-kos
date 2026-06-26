@@ -42,7 +42,7 @@ export default function Home() {
   }, [template]);
 
   // Handle Submit Form
-  const handleSubmit = async (e: React.FormEven<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
@@ -78,7 +78,7 @@ const currentKos = filteredKos.slice(
 const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
 
   return (
-    <main className="min-h-screenpy-6 px-3 sm:py-10 sm:px-6 max-w-7xl mx-auto space-y-6 sm:space-y-10">
+    <main className="min-h-screen py-6 px-3 sm:py-10 sm:px-6 max-w-7xl mx-auto space-y-6 sm:space-y-10">
       
       {/* HEADER UTAMA */}
       <div className="text-center space-y-3">
@@ -173,7 +173,7 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
         {/* KANAN: Live Preview Panel */}
         <div className="bg-white shadow-sm rounded-xl p-4 sm:p-6 border border-gray-200 flex flex-col">
           <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 bg-[#F5F6EF]0 rounded-full animate-pulse"></span>
+            <span className="w-2 h-2 bg-[#F5F6EF] rounded-full animate-pulse"></span>
             Live Preview (Deteksi Otomatis)
           </h2>
           
@@ -250,11 +250,13 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
                     <td className="px-4 py-3 truncate max-w-xs" title={kos.alamat}>{kos.alamat}</td>
                     <td className="px-4 py-3 font-mono text-xs">{kos.cp}</td>
                     <td className="px-4 py-3">
-                      {kos.foto.map((foto, index) => (
+                      {kos.foto?.map((foto: any, index: number) => (
                         <a
                           key={index}
                           href={foto.url}
                           target="_blank"
+                          rel="noreferrer"
+                          className="block text-[#6B7340] hover:underline"
                         >
                           {foto.name}
                         </a>
