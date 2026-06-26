@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { parseChatKos, ParsedKos } from '@/utils/parser';
 import { uploadAndSaveKos, getAllKos } from '@/actions/kosActions';
+import Image from 'next/image';
 
 export default function Home() {
   // State Form & Loading
@@ -16,6 +17,9 @@ export default function Home() {
   // State Pencarian & Database
   const [allKosData, setAllKosData] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // Fungsi mengambil data terbaru
   const refreshData = async () => {
@@ -38,7 +42,7 @@ export default function Home() {
   }, [template]);
 
   // Handle Submit Form
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEven<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
@@ -63,14 +67,35 @@ export default function Home() {
     kos.kota?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+const currentKos = filteredKos.slice(
+  indexOfFirstItem,
+  indexOfLastItem
+);
+
+const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
+
   return (
-    <main className="min-h-screen bg-gray-50 py-6 px-3 sm:py-10 sm:px-6 max-w-7xl mx-auto space-y-6 sm:space-y-10">
+    <main className="min-h-screenpy-6 px-3 sm:py-10 sm:px-6 max-w-7xl mx-auto space-y-6 sm:space-y-10">
       
       {/* HEADER UTAMA */}
-      <div className="text-center space-y-2">
+      <div className="text-center space-y-3">
+        <div className="flex justify-center">
+          <Image
+            src="/babookos.webp"
+            alt="Baboo Kos Logo"
+            width={30}
+            height={30}
+            priority
+          />
+        </div>
+
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
           Bot Kos Dashboard
         </h1>
+
         <p className="text-xs sm:text-sm text-gray-500">
           Otomatisasi Input & Update Data Real-time ke Google Sheets
         </p>
@@ -92,15 +117,15 @@ export default function Home() {
                   name="chatTemplate"
                   rows={8}
                   required
-                  placeholder="[NAMA KOS]&#10;Kost Golden Butterfly Putri..."
+                  placeholder="[NAMA KOS]&#10;Kost.."
                   value={template}
                   onChange={(e) => setTemplate(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs sm:text-sm bg-gray-50 text-black"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] font-mono text-xs sm:text-sm bg-gray-50 text-black"
                 />
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
+                {/* <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
                   Upload Foto-Foto Kos
                 </label>
                 <input
@@ -108,15 +133,29 @@ export default function Home() {
                   name="images"
                   multiple
                   accept="image/*"
-                  className="w-full text-xs sm:text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                />
+                  className="w-full text-xs sm:text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#F5F6EF] file:text-[#6B7340] hover:file:bg-[#F5F6EF]"
+                /> */}
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
+                    Link Google Drive Foto Kos
+                  </label>
+
+                  <textarea
+                    name="gdriveLinks"
+                    rows={3}
+                    placeholder="https://drive.google.com/view"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] text-xs sm:text-sm bg-gray-50 text-black"
+                  />
+
+                  <p className="text-xs text-gray-500 mt-1">
+                    *Satu link per baris.
+                  </p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
                 className={`w-full py-3 rounded-lg text-xs sm:text-sm font-semibold text-white transition-all shadow-sm ${
-                  loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+                  loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#6B7340] hover:bg-[#5C6336]'
                 }`}
               >
                 {loading ? 'Sedang Memproses & Sinkronisasi...' : 'Proses Data Otomatis'}
@@ -125,7 +164,7 @@ export default function Home() {
           </div>
 
           {message && (
-            <div className="mt-4 p-3 rounded-lg text-xs sm:text-sm text-center bg-blue-50 border border-blue-100 font-medium text-blue-800 break-words">
+            <div className="mt-4 p-3 rounded-lg text-xs sm:text-sm text-center bg-[#F5F6EF] border border-[#D7DDBA] font-medium text-[#6B7340] break-words">
               {message}
             </div>
           )}
@@ -134,13 +173,13 @@ export default function Home() {
         {/* KANAN: Live Preview Panel */}
         <div className="bg-white shadow-sm rounded-xl p-4 sm:p-6 border border-gray-200 flex flex-col">
           <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <span className="w-2 h-2 bg-[#F5F6EF]0 rounded-full animate-pulse"></span>
             Live Preview (Deteksi Otomatis)
           </h2>
           
           {preview ? (
             <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[380px] lg:max-h-[420px] text-xs sm:text-sm text-gray-700 bg-gray-50 p-3 sm:p-4 rounded-lg border border-dashed border-gray-300">
-              <p><strong>Nama Kos:</strong> <span className="text-blue-600 font-semibold">{preview.NAMA_KOS || '-'}</span></p>
+              <p><strong>Nama Kos:</strong> <span className="text-[#6B7340] font-semibold">{preview.NAMA_KOS || '-'}</span></p>
               <p><strong>Kota:</strong> <span className="bg-gray-200 px-1.5 py-0.5 rounded text-xs font-medium">{preview.KOTA || '-'}</span></p>
               <p><strong>Jenis:</strong> {preview.JENIS || '-'}</p>
               <p><strong>Alamat:</strong> {preview.ALAMAT || '-'}</p>
@@ -178,7 +217,7 @@ export default function Home() {
               placeholder="Cari nama kos atau kota..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full p-2.5 border border-gray-300 rounded-lg text-xs sm:text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
+              className="w-full p-2.5 border border-gray-300 rounded-lg text-xs sm:text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6B7340] text-black"
             />
           </div>
         </div>
@@ -193,17 +232,17 @@ export default function Home() {
                 <th className="px-4 py-3">Jenis</th>
                 <th className="px-4 py-3">Alamat</th>
                 <th className="px-4 py-3">Kontak</th>
-                <th className="px-4 py-3">Foto Cloudinary</th>
+                <th className="px-4 py-3">Foto</th>
                 <th className="px-4 py-3">Last Update</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white text-gray-600">
-              {filteredKos.length > 0 ? (
-                filteredKos.map((kos) => (
+              {currentKos.length > 0 ? (
+                currentKos.map((kos) => (
                   <tr key={kos.idKos} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-3 font-semibold text-gray-900">{kos.namaKos}</td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded text-xs font-medium">
+                      <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">
                         {kos.kota}
                       </span>
                     </td>
@@ -211,17 +250,15 @@ export default function Home() {
                     <td className="px-4 py-3 truncate max-w-xs" title={kos.alamat}>{kos.alamat}</td>
                     <td className="px-4 py-3 font-mono text-xs">{kos.cp}</td>
                     <td className="px-4 py-3">
-                      {kos.foto && kos.foto.length > 0 ? (
-                        <div className="flex gap-1 overflow-x-auto max-w-[140px] pb-1">
-                          {kos.foto.map((url: string, index: number) => (
-                            <a key={index} href={url} target="_blank" rel="noreferrer" className="text-xs bg-gray-100 border border-gray-200 hover:bg-blue-50 hover:text-blue-600 px-1.5 py-0.5 rounded text-gray-600 transition whitespace-nowrap">
-                              F-{index + 1}
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs">No Photo</span>
-                      )}
+                      {kos.foto.map((foto, index) => (
+                        <a
+                          key={index}
+                          href={foto.url}
+                          target="_blank"
+                        >
+                          {foto.name}
+                        </a>
+                      ))}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400 font-mono">{kos.updatedAt}</td>
                   </tr>
@@ -237,12 +274,12 @@ export default function Home() {
 
         {/* B. TAMPILAN HP / MOBILE (CARD LIST STYLE) */}
         <div className="block md:hidden space-y-4">
-          {filteredKos.length > 0 ? (
-            filteredKos.map((kos) => (
+          {currentKos.length > 0 ? (
+            currentKos.map((kos) => (
               <div key={kos.idKos} className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-2 text-xs text-gray-600 shadow-xs">
                 <div className="flex justify-between items-start">
                   <h3 className="font-bold text-gray-900 text-sm">{kos.namaKos}</h3>
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xxs font-semibold uppercase">{kos.kota}</span>
+                  <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] rounded text-xxs font-semibold uppercase">{kos.kota}</span>
                 </div>
                 <p><strong>Jenis:</strong> {kos.jenis} | <strong>Kontak:</strong> <span className="font-mono">{kos.cp}</span></p>
                 <p className="line-clamp-2"><strong>Alamat:</strong> {kos.alamat}</p>
@@ -251,15 +288,21 @@ export default function Home() {
                 <div className="pt-1 flex flex-wrap gap-1 items-center">
                   <span className="font-semibold text-gray-700 mr-1">Foto ({kos.foto ? kos.foto.length : 0}):</span>
                   {kos.foto && kos.foto.length > 0 ? (
-                    kos.foto.map((url: string, index: number) => (
-                      <a key={index} href={url} target="_blank" rel="noreferrer" className="bg-white border border-gray-300 rounded px-2 py-0.5 text-xxs font-medium text-blue-600 active:bg-blue-50">
-                        Link-{index + 1}
+                    kos.foto.map((foto: any, index: number) => (
+                      <a
+                        key={index}
+                        href={foto.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-white border border-gray-300 rounded px-2 py-0.5 text-xxs font-medium text-[#6B7340] active:bg-[#F5F6EF]"
+                      >
+                        {foto.name}
                       </a>
                     ))
                   ) : (
                     <span className="text-gray-400 text-xxs">Kosong</span>
                   )}
-                </div>
+                                  </div>
                 <div className="text-right text-xxs text-gray-400 pt-1 border-t border-gray-200/60 font-mono">
                   Updated: {kos.updatedAt}
                 </div>
@@ -270,6 +313,28 @@ export default function Home() {
               Data tidak ditemukan.
             </div>
           )}
+        </div>
+
+        <div className="flex justify-center items-center gap-3 mt-6">
+          <button
+            onClick={() => setCurrentPage(prev => prev - 1)}
+            disabled={currentPage === 1}
+            className="px-4 py-2 border rounded-lg disabled:opacity-50"
+          >
+            Prev
+          </button>
+
+          <span className="text-sm text-gray-600">
+            Halaman {currentPage} dari {totalPages}
+          </span>
+
+          <button
+            onClick={() => setCurrentPage(prev => prev + 1)}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 border rounded-lg disabled:opacity-50"
+          >
+            Next
+          </button>
         </div>
 
       </div>

@@ -1,10 +1,45 @@
 'use server';
 
 import { google } from 'googleapis';
-import { v2 as cloudinary } from 'cloudinary';
+// import { v2 as cloudinary } from 'cloudinary';
 import { parseChatKos } from '@/utils/parser';
 
 const SPREADSHEET_ID = '1Nc-TdrO-NqXF7FgkaY1JWAezyFfImImLYfLzf0gfmV0';
+function extractFolderId(url: string): string | null {
+  const match = url.match(/folders\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : null;
+}
+
+async function getFolderName(folderUrl: string) {
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_CLIENT_EMAIL,
+        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      },
+      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    });
+
+    const drive = google.drive({
+      version: 'v3',
+      auth
+    });
+
+    const folderId = extractFolderId(folderUrl);
+
+    if (!folderId) return 'Folder Tidak Diketahui';
+
+    const response = await drive.files.get({
+      fileId: folderId,
+      fields: 'name'
+    });
+
+    return response.data.name || 'Folder Tanpa Nama';
+  } catch (error) {
+    console.error('Gagal mengambil nama folder:', error);
+    return 'Folder Tidak Diketahui';
+  }
+}
 
 // Fungsi helper untuk inisialisasi Google Sheets
 async function getSheetsInstance() {
@@ -13,21 +48,26 @@ async function getSheetsInstance() {
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
       private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     },
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    scopes: [
+      'https://www.googleapis.com/auth/spreadsheets',
+      'https://www.googleapis.com/auth/drive.readonly'
+    ],
   });
   return google.sheets({ version: 'v4', auth });
 }
 
 export async function uploadAndSaveKos(formData: FormData) {
   try {
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-    });
+    // cloudinary.config({
+    //   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    //   api_key: process.env.CLOUDINARY_API_KEY,
+    //   api_secret: process.env.CLOUDINARY_API_SECRET,
+    // });
 
     const chatTemplate = formData.get('chatTemplate') as string;
-    const files = formData.getAll('images') as File[];
+    // const files = formData.getAll('images') as File[];
+    const gdriveLinksText =
+      (formData.get('gdriveLinks') as string) || '';
 
     if (!chatTemplate) throw new Error('Template chat tidak boleh kosong!');
 
@@ -35,21 +75,11 @@ export async function uploadAndSaveKos(formData: FormData) {
     const namaKos = parsedData.NAMA_KOS || 'Kos Tanpa Nama';
     const namaKota = parsedData.KOTA || 'Surabaya'; 
 
-    // 1. UPLOAD FOTO BARU (Jika Ada)
-    const imageUrls: string[] = [];
-    for (const file of files) {
-      if (file.size > 0) {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const uploadResult = await new Promise<any>((resolve, reject) => {
-          cloudinary.uploader.upload_stream(
-            { folder: `bot-kos/${namaKota}/${namaKos}`, resource_type: 'image' },
-            (error, result) => { if (error) reject(error); else resolve(result); }
-          ).end(buffer);
-        });
-        if (uploadResult?.secure_url) imageUrls.push(uploadResult.secure_url);
-      }
-    }
+    // Ambil link Google Drive yang dipisahkan per baris
+    const imageUrls = gdriveLinksText
+      .split('\n')
+      .map(link => link.trim())
+      .filter(Boolean);
 
     const sheets = await getSheetsInstance();
     const tanggalSekarang = new Date().toLocaleDateString('id-ID');
@@ -72,18 +102,17 @@ export async function uploadAndSaveKos(formData: FormData) {
     let isUpdate = false;
 
     if (existingKosIndex !== -1) {
-      // JIKA DATA SUDAH ADA (UPDATE MODE) - Spasi typo sudah diperbaiki di sini
       const rowDataLama = kosRows[existingKosIndex];
-      idKos = rowDataLama[0]; // Pakai ID lama
-      tanggalPembuatan = rowDataLama[11]; // Pertahankan tanggal dibuat
-      
-      // Jika tidak upload foto baru, pakai foto lama. Jika ada yang baru, gabungkan.
+      idKos = rowDataLama[0];
+      tanggalPembuatan = rowDataLama[11];
+
       const fotoLama = rowDataLama[10] || '';
-      if (imageUrls.length === 0) {
-        fotoFinal = fotoLama;
-      } else {
-        fotoFinal = fotoLama ? `${fotoLama}, ${imageUrls.join(', ')}` : imageUrls.join(', ');
-      }
+
+      fotoFinal =
+        imageUrls.length > 0
+          ? imageUrls.join(', ')
+          : fotoLama;
+
       isUpdate = true;
     }
 
@@ -162,30 +191,49 @@ export async function uploadAndSaveKos(formData: FormData) {
 export async function getAllKos() {
   try {
     const sheets = await getSheetsInstance();
+
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'DATA_KOS!A:M',
     });
-    
-    const rows = response.data.values || [];
-    if (rows.length <= 1) return []; 
 
-    return rows.slice(1).map(row => ({
-      idKos: row[0],
-      namaKos: row[1],
-      kota: row[2],
-      jenis: row[3],
-      status: row[4],
-      alamat: row[5],
-      cp: row[6],
-      fasilitas: row[7],
-      fasilitasUmum: row[8],
-      nearby: row[9],
-      foto: row[10] ? row[10].split(', ') : [],
-      updatedAt: row[12]
-    }));
+    const rows = response.data.values || [];
+
+    if (rows.length <= 1) return [];
+
+    return await Promise.all(
+      rows.slice(1).map(async (row) => {
+
+        const fotoLinks = row[10]
+          ? row[10].split(',').map(x => x.trim()).filter(Boolean)
+          : [];
+
+        const foto = await Promise.all(
+          fotoLinks.map(async (link) => ({
+            url: link,
+            name: await getFolderName(link)
+          }))
+        );
+
+        return {
+          idKos: row[0],
+          namaKos: row[1],
+          kota: row[2],
+          jenis: row[3],
+          status: row[4],
+          alamat: row[5],
+          cp: row[6],
+          fasilitas: row[7],
+          fasilitasUmum: row[8],
+          nearby: row[9],
+          foto,
+          updatedAt: row[12]
+        };
+      })
+    );
+
   } catch (error) {
-    console.error("Gagal mengambil data pencarian:", error);
+    console.error('Gagal mengambil data pencarian:', error);
     return [];
   }
 }
