@@ -201,36 +201,39 @@ export async function getAllKos() {
 
     if (rows.length <= 1) return [];
 
-    return await Promise.all(
-      rows.slice(1).map(async (row) => {
+return await Promise.all(
+  rows.slice(1).map(async (row: string[]) => {
 
-        const fotoLinks = row[10]
-          ? row[10].split(',').map(x => x.trim()).filter(Boolean)
-          : [];
+    const fotoLinks = row[10]
+      ? row[10]
+          .split(',')
+          .map((x: string) => x.trim())
+          .filter(Boolean)
+      : [];
 
-        const foto = await Promise.all(
-          fotoLinks.map(async (link) => ({
-            url: link,
-            name: await getFolderName(link)
-          }))
-        );
-
-        return {
-          idKos: row[0],
-          namaKos: row[1],
-          kota: row[2],
-          jenis: row[3],
-          status: row[4],
-          alamat: row[5],
-          cp: row[6],
-          fasilitas: row[7],
-          fasilitasUmum: row[8],
-          nearby: row[9],
-          foto,
-          updatedAt: row[12]
-        };
-      })
+    const foto = await Promise.all(
+      fotoLinks.map(async (link: string) => ({
+        url: link,
+        name: await getFolderName(link)
+      }))
     );
+
+    return {
+      idKos: row[0],
+      namaKos: row[1],
+      kota: row[2],
+      jenis: row[3],
+      status: row[4],
+      alamat: row[5],
+      cp: row[6],
+      fasilitas: row[7],
+      fasilitasUmum: row[8],
+      nearby: row[9],
+      foto,
+      updatedAt: row[12]
+    };
+  })
+);
 
   } catch (error) {
     console.error('Gagal mengambil data pencarian:', error);
