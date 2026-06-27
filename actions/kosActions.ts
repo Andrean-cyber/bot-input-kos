@@ -179,7 +179,7 @@ export async function uploadAndSaveKos(formData: FormData) {
 
     const dataKosRow = [
       idKos, namaKos, namaKota, parsedData.JENIS, 'Aktif',
-      parsedData.ALAMAT, parsedData.CP, parsedData.FASILITAS,
+      parsedData.ALAMAT, "'" + parsedData.CP, parsedData.FASILITAS,
       parsedData.FASILITAS_UMUM, parsedData.NEARBY, fotoFinal,
       tanggalPembuatan, tanggalSekarang
     ];
