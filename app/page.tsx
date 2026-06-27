@@ -154,10 +154,32 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full py-3 rounded-lg text-xs sm:text-sm font-semibold text-white transition-all shadow-sm ${
-                  loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#6B7340] hover:bg-[#5C6336]'
+                className={`w-full py-3 rounded-lg text-xs sm:text-sm font-semibold text-white transition-all duration-300 shadow-sm flex items-center justify-center gap-2 ${
+                  loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#6B7340] hover:bg-[#5C6336] active:scale-[0.98]'
                 }`}
               >
+                {loading && (
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                    />
+                  </svg>
+                )}
                 {loading ? 'Sedang Memproses & Sinkronisasi...' : 'Proses Data Otomatis'}
               </button>
             </form>

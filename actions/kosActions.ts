@@ -56,6 +56,67 @@ async function getSheetsInstance() {
   return google.sheets({ version: 'v4', auth });
 }
 
+// Helper untuk mengambil sheetId numerik berdasarkan nama sheet
+async function getSheetIdByTitle(sheets: any, title: string): Promise<number> {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+    fields: 'sheets.properties',
+  });
+
+  const sheet = meta.data.sheets?.find(
+    (s: any) => s.properties.title === title
+  );
+
+  if (!sheet) {
+    throw new Error(`Sheet "${title}" tidak ditemukan di spreadsheet.`);
+  }
+
+  return sheet.properties.sheetId;
+}
+
+// Helper untuk menerapkan format rata tengah + auto wrap pada sebuah sheet
+async function applyCellFormatting(
+  sheets: any,
+  sheetTitle: string,
+  numColumns: number
+) {
+  try {
+    const sheetId = await getSheetIdByTitle(sheets, sheetTitle);
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: 1, // skip baris header (index 0)
+                startColumnIndex: 0,
+                endColumnIndex: numColumns,
+                // endRowIndex sengaja tidak diisi -> berlaku untuk semua baris
+                // ke bawah, jadi baris baru ke depannya otomatis ikut rapi
+              },
+              cell: {
+                userEnteredFormat: {
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'MIDDLE',
+                  wrapStrategy: 'WRAP',
+                },
+              },
+              fields:
+                'userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)',
+            },
+          },
+        ],
+      },
+    });
+  } catch (error) {
+    // Format gagal bukan error fatal, jadi cukup di-log saja
+    console.error(`Gagal menerapkan format pada sheet "${sheetTitle}":`, error);
+  }
+}
+
 export async function uploadAndSaveKos(formData: FormData) {
   try {
     // cloudinary.config({
@@ -175,6 +236,10 @@ export async function uploadAndSaveKos(formData: FormData) {
       requestBody: { values: totalKamarLengkap }
     });
 
+    // 4. RAPIKAN TAMPILAN: rata tengah + auto wrap di kedua sheet
+    await applyCellFormatting(sheets, 'DATA_KOS', 13);   // kolom A:M = 13 kolom
+    await applyCellFormatting(sheets, 'DATA_KAMAR', 4);  // kolom A:D = 4 kolom
+
     return { 
       success: true, 
       message: isUpdate 
@@ -201,39 +266,39 @@ export async function getAllKos() {
 
     if (rows.length <= 1) return [];
 
-return await Promise.all(
-  rows.slice(1).map(async (row: string[]) => {
+    return await Promise.all(
+      rows.slice(1).map(async (row: string[]) => {
 
-    const fotoLinks = row[10]
-      ? row[10]
-          .split(',')
-          .map((x: string) => x.trim())
-          .filter(Boolean)
-      : [];
+        const fotoLinks = row[10]
+          ? row[10]
+              .split(',')
+              .map((x: string) => x.trim())
+              .filter(Boolean)
+          : [];
 
-    const foto = await Promise.all(
-      fotoLinks.map(async (link: string) => ({
-        url: link,
-        name: await getFolderName(link)
-      }))
+        const foto = await Promise.all(
+          fotoLinks.map(async (link: string) => ({
+            url: link,
+            name: await getFolderName(link)
+          }))
+        );
+
+        return {
+          idKos: row[0],
+          namaKos: row[1],
+          kota: row[2],
+          jenis: row[3],
+          status: row[4],
+          alamat: row[5],
+          cp: row[6],
+          fasilitas: row[7],
+          fasilitasUmum: row[8],
+          nearby: row[9],
+          foto,
+          updatedAt: row[12]
+        };
+      })
     );
-
-    return {
-      idKos: row[0],
-      namaKos: row[1],
-      kota: row[2],
-      jenis: row[3],
-      status: row[4],
-      alamat: row[5],
-      cp: row[6],
-      fasilitas: row[7],
-      fasilitasUmum: row[8],
-      nearby: row[9],
-      foto,
-      updatedAt: row[12]
-    };
-  })
-);
 
   } catch (error) {
     console.error('Gagal mengambil data pencarian:', error);
