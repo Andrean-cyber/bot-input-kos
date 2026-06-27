@@ -78,8 +78,8 @@ const currentKos = filteredKos.slice(
 const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
 
   return (
-    <main className="min-h-screen py-6 px-3 sm:py-10 sm:px-6 max-w-7xl mx-auto space-y-6 sm:space-y-10">
-      
+    
+    <main className="min-h-screen py-6 px-3 sm:py-10 sm:px-6 max-w-7xl mx-auto space-y-6 sm:space-y-10 bg-white text-black">
       {/* HEADER UTAMA */}
       <div className="text-center space-y-3">
         <div className="flex justify-center">
