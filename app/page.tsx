@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { parseChatKos, ParsedKos } from '@/utils/parser';
+import { parseChatKos, JENIS_VALID, KATEGORI_VALID } from '@/utils/parser';
 import { uploadAndSaveKos, getAllKos } from '@/actions/kosActions';
 import Image from 'next/image';
 
@@ -10,9 +10,9 @@ export default function Home() {
   const [template, setTemplate] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  
+
   // State Live Preview
-  const [preview, setPreview] = useState<ParsedKos | null>(null);
+  const [preview, setPreview] = useState<ReturnType<typeof parseChatKos> | null>(null);
 
   // State Pencarian & Database
   const [allKosData, setAllKosData] = useState<any[]>([]);
@@ -21,7 +21,6 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  // Fungsi mengambil data terbaru
   const refreshData = async () => {
     const data = await getAllKos();
     setAllKosData(data);
@@ -41,12 +40,10 @@ export default function Home() {
     }
   }, [template]);
 
-  // Reset ke halaman 1 setiap kali kata kunci pencarian berubah
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
-  // Handle Submit Form
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -67,35 +64,24 @@ export default function Home() {
   };
 
   // Filter pencarian: nama kos, jenis kos, dan kota
-  const filteredKos = allKosData.filter(kos => 
-    kos.namaKos?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    kos.kota?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    kos.jenis?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredKos = allKosData.filter(
+    (kos) =>
+      kos.namaKos?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      kos.kota?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      kos.jenis?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-
-const currentKos = filteredKos.slice(
-  indexOfFirstItem,
-  indexOfLastItem
-);
-
-const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
+  const currentKos = filteredKos.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
 
   return (
-    
     <main className="min-h-screen py-6 px-3 sm:py-10 sm:px-6 max-w-7xl mx-auto space-y-6 sm:space-y-10 bg-white text-black">
       {/* HEADER UTAMA */}
       <div className="text-center space-y-3">
         <div className="flex justify-center">
-          <Image
-            src="/babookos.webp"
-            alt="Baboo Kos Logo"
-            width={30}
-            height={30}
-            priority
-          />
+          <Image src="/babookos.webp" alt="Baboo Kos Logo" width={30} height={30} priority />
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
@@ -103,13 +89,12 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
         </h1>
 
         <p className="text-xs sm:text-sm text-gray-500">
-          Otomatisasi Input & Update Data Real-time ke Google Sheets
+          Otomatisasi Input & Update Data Real-time ke Google Sheets (per Kota & Kategori)
         </p>
       </div>
 
       {/* ================= SECTION 1: INPUT & PREVIEW (GRID) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-        
         {/* KIRI: Form Input */}
         <div className="bg-white shadow-sm rounded-xl p-4 sm:p-6 border border-gray-200 flex flex-col justify-between">
           <div>
@@ -117,13 +102,13 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
-                  Paste Chat Template Di Sini
+                  Paste Template Kos Di Sini
                 </label>
                 <textarea
                   name="chatTemplate"
-                  rows={8}
+                  rows={10}
                   required
-                  placeholder="[NAMA KOS]&#10;Kost.."
+                  placeholder={'[KOTA] Malang\n[KATEGORI] Endorse\n[NAMA KOS] Kost..'}
                   value={template}
                   onChange={(e) => setTemplate(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] font-mono text-xs sm:text-sm bg-gray-50 text-black"
@@ -131,30 +116,18 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
               </div>
 
               <div>
-                {/* <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
-                  Upload Foto-Foto Kos
-                </label>
-                <input
-                  type="file"
-                  name="images"
-                  multiple
-                  accept="image/*"
-                  className="w-full text-xs sm:text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-[#F5F6EF] file:text-[#6B7340] hover:file:bg-[#F5F6EF]"
-                /> */}
                 <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
-                    Link Google Drive Foto Kos
-                  </label>
+                  Link Google Drive Foto Kos
+                </label>
 
-                  <textarea
-                    name="gdriveLinks"
-                    rows={3}
-                    placeholder="https://drive.google.com/view"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] text-xs sm:text-sm bg-gray-50 text-black"
-                  />
+                <textarea
+                  name="gdriveLinks"
+                  rows={3}
+                  placeholder="https://drive.google.com/view"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] text-xs sm:text-sm bg-gray-50 text-black"
+                />
 
-                  <p className="text-xs text-gray-500 mt-1">
-                    *Satu link per baris.
-                  </p>
+                <p className="text-xs text-gray-500 mt-1">*Satu link per baris.</p>
               </div>
 
               <button
@@ -165,20 +138,8 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
                 }`}
               >
                 {loading && (
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
+                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path
                       className="opacity-75"
                       fill="currentColor"
@@ -204,27 +165,65 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
             <span className="w-2 h-2 bg-[#F5F6EF] rounded-full animate-pulse"></span>
             Live Preview (Deteksi Otomatis)
           </h2>
-          
+
           {preview ? (
-            <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[380px] lg:max-h-[420px] text-xs sm:text-sm text-gray-700 bg-gray-50 p-3 sm:p-4 rounded-lg border border-dashed border-gray-300">
-              <p><strong>Nama Kos:</strong> <span className="text-[#6B7340] font-semibold">{preview.NAMA_KOS || '-'}</span></p>
-              <p><strong>Kota:</strong> <span className="bg-gray-200 px-1.5 py-0.5 rounded text-xs font-medium">{preview.KOTA || '-'}</span></p>
-              <p><strong>Jenis:</strong> {preview.JENIS || '-'}</p>
-              <p><strong>Alamat:</strong> {preview.ALAMAT || '-'}</p>
-              <p><strong>Fasilitas Kamar:</strong> {preview.FASILITAS || '-'}</p>
-              <p><strong>Fasilitas Umum:</strong> {preview.FASILITAS_UMUM || '-'}</p>
-              <p><strong>Nearby:</strong> {preview.NEARBY || '-'}</p>
-              <p><strong>WhatsApp / CP:</strong> <span className="font-mono">{preview.CP || '-'}</span></p>
-              <div className="border-t border-gray-200 pt-2.5 mt-2">
-                <p className="font-bold text-gray-800 mb-1">Kamar Terdeteksi:</p>
-                <pre className="bg-gray-800 text-green-400 p-2 rounded text-xxs sm:text-xs font-mono overflow-x-auto whitespace-pre-wrap">
-                  {preview.KAMAR || 'Kamar belum terisi'}
-                </pre>
+            <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[420px] lg:max-h-[460px] text-xs sm:text-sm text-gray-700 bg-gray-50 p-3 sm:p-4 rounded-lg border border-dashed border-gray-300">
+              <p>
+                <strong>Kota:</strong>{' '}
+                <span className="bg-gray-200 px-1.5 py-0.5 rounded text-xs font-medium">{preview.KOTA || '-'}</span>
+                {' '}
+                <span className="text-xxs text-gray-400">
+                  ({preview.KOTA ? 'sheet akan dibuat otomatis jika belum ada' : 'wajib diisi!'})
+                </span>
+              </p>
+              <p>
+                <strong>Kategori:</strong>{' '}
+                {preview.KATEGORI ? (
+                  <span className="px-1.5 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">
+                    {preview.KATEGORI}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">- (tidak masuk sheet kategori)</span>
+                )}
+                <span className="text-xxs text-gray-400 ml-1">
+                  (opsi: {KATEGORI_VALID.join(', ')})
+                </span>
+              </p>
+              <p>
+                <strong>Nama Kos:</strong> <span className="text-[#6B7340] font-semibold">{preview.NAMA_KOS || '-'}</span>
+              </p>
+              <div className="flex items-center gap-2">
+                <strong>Jenis:</strong>
+                <select
+                  value={preview.JENIS || ''}
+                  onChange={() => {}}
+                  className="border border-gray-300 rounded px-2 py-1 text-xs bg-white"
+                >
+                  <option value="">- (tidak terdeteksi)</option>
+                  {JENIS_VALID.map((j) => (
+                    <option key={j} value={j}>{j}</option>
+                  ))}
+                </select>
+                <span className="text-xxs text-gray-400">(auto-deteksi, bisa override pakai tag [JENIS])</span>
               </div>
+              <p>
+                <strong>Tanggal Input:</strong> {preview.TANGGAL_INPUT || '-'}
+                {preview.tanggalIsFallback && (
+                  <span className="text-amber-600 text-xxs ml-1">⚠️ format salah, dipakai tanggal hari ini</span>
+                )}
+              </p>
+              <p><strong>Alamat:</strong> {preview.ALAMAT || '-'}</p>
+              <p><strong>Nomor/CP:</strong> <span className="font-mono">{preview.CP || '-'}</span></p>
+              <p><strong>Harga:</strong> {preview.HARGA || '-'}</p>
+              <p><strong>Nearby:</strong> {preview.NEARBY || '-'}</p>
+              <p><strong>Fasilitas:</strong> {preview.FASILITAS || '-'}</p>
+              {preview.KATEGORI && (
+                <p><strong>Kamar Kosong:</strong> {preview.KAMAR_KOSONG || '-'}</p>
+              )}
             </div>
           ) : (
             <div className="flex-1 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-center p-6 text-xs sm:text-sm min-h-[150px]">
-              Paste teks chat kos di form kiri untuk melihat preview ekstraksi data langsung.
+              Paste template kos di form kiri untuk melihat preview ekstraksi data langsung.
             </div>
           )}
         </div>
@@ -232,12 +231,11 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
 
       {/* ================= SECTION 2: DATABASE & SEARCH ================= */}
       <div className="bg-white shadow-sm rounded-xl p-4 sm:p-6 border border-gray-200">
-        
         {/* Search Bar & Title */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-gray-800">Database Kos</h2>
-            <p className="text-xs text-gray-500">Sinkronisasi langsung dengan master data Google Sheets</p>
+            <p className="text-xs text-gray-500">Sinkronisasi langsung dengan sheet kota di Google Sheets</p>
           </div>
           <div className="w-full sm:w-72">
             <input
@@ -265,9 +263,10 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
                 <th className="px-4 py-3">Kota</th>
                 <th className="px-4 py-3">Jenis</th>
                 <th className="px-4 py-3">Alamat</th>
+                <th className="px-4 py-3">Harga</th>
                 <th className="px-4 py-3">Kontak</th>
                 <th className="px-4 py-3">Foto</th>
-                <th className="px-4 py-3">Last Update</th>
+                <th className="px-4 py-3">Tanggal Input</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white text-gray-600">
@@ -282,6 +281,7 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
                     </td>
                     <td className="px-4 py-3">{kos.jenis}</td>
                     <td className="px-4 py-3 truncate max-w-xs" title={kos.alamat}>{kos.alamat}</td>
+                    <td className="px-4 py-3">{kos.harga}</td>
                     <td className="px-4 py-3 font-mono text-xs">{kos.cp}</td>
                     <td className="px-4 py-3">
                       {kos.foto?.map((foto: any, index: number) => (
@@ -296,12 +296,12 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
                         </a>
                       ))}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400 font-mono">{kos.updatedAt}</td>
+                    <td className="px-4 py-3 text-xs text-gray-400 font-mono">{kos.tanggalInput}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-4 py-10 text-center text-gray-400 bg-gray-50">Data tidak ditemukan.</td>
+                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400 bg-gray-50">Data tidak ditemukan.</td>
                 </tr>
               )}
             </tbody>
@@ -318,9 +318,9 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
                   <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] rounded text-xxs font-semibold uppercase">{kos.kota}</span>
                 </div>
                 <p><strong>Jenis:</strong> {kos.jenis} | <strong>Kontak:</strong> <span className="font-mono">{kos.cp}</span></p>
+                <p><strong>Harga:</strong> {kos.harga}</p>
                 <p className="line-clamp-2"><strong>Alamat:</strong> {kos.alamat}</p>
-                
-                {/* Bagian Galeri Foto di Mobile */}
+
                 <div className="pt-1 flex flex-wrap gap-1 items-center">
                   <span className="font-semibold text-gray-700 mr-1">Foto ({kos.foto ? kos.foto.length : 0}):</span>
                   {kos.foto && kos.foto.length > 0 ? (
@@ -338,9 +338,9 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
                   ) : (
                     <span className="text-gray-400 text-xxs">Kosong</span>
                   )}
-                                  </div>
+                </div>
                 <div className="text-right text-xxs text-gray-400 pt-1 border-t border-gray-200/60 font-mono">
-                  Updated: {kos.updatedAt}
+                  Input: {kos.tanggalInput}
                 </div>
               </div>
             ))
@@ -353,7 +353,7 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
 
         <div className="flex justify-center items-center gap-3 mt-6">
           <button
-            onClick={() => setCurrentPage(prev => prev - 1)}
+            onClick={() => setCurrentPage((prev) => prev - 1)}
             disabled={currentPage === 1}
             className="px-4 py-2 border rounded-lg disabled:opacity-50"
           >
@@ -361,18 +361,17 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
           </button>
 
           <span className="text-sm text-gray-600">
-            Halaman {currentPage} dari {totalPages}
+            Halaman {currentPage} dari {totalPages || 1}
           </span>
 
           <button
-            onClick={() => setCurrentPage(prev => prev + 1)}
-            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((prev) => prev + 1)}
+            disabled={currentPage === totalPages || totalPages === 0}
             className="px-4 py-2 border rounded-lg disabled:opacity-50"
           >
             Next
           </button>
         </div>
-
       </div>
     </main>
   );
