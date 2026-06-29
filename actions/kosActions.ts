@@ -16,7 +16,7 @@ const HEADER_KATEGORI = ["NO", "Nama Kos", "Jenis", "Tanggal Input", "Alamat", "
 const LEFT_ALIGN_COLUMNS = [1, 4, 6, 8, 9]; // Nama Kos, Alamat, Fasilitas, Nearby, Folder Drive URL
 
 // Kolom dengan teks sangat panjang -> wrap ke bawah + lebar 200px
-const WRAP_COLUMNS = [4, 6, 7, 8, 9]; // Alamat, Fasilitas, Harga, Nearby, FOLDER DRIVE URL
+const WRAP_COLUMNS = [1, 4, 6, 7, 8, 9]; // Alamat, Fasilitas, Harga, Nearby, FOLDER DRIVE URL
 
 const NO_COLUMN_WIDTH = 50; // px, khusus kolom NO
 const UNIFORM_COLUMN_WIDTH = 160; // px, kolom standar
