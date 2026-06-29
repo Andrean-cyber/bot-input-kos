@@ -1,22 +1,22 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { parseChatKos, JENIS_VALID, KATEGORI_VALID } from '@/utils/parser';
-import { uploadAndSaveKos, getAllKos } from '@/actions/kosActions';
-import Image from 'next/image';
+import { useState, useEffect } from "react";
+import { parseChatKos, JENIS_VALID, KATEGORI_VALID } from "@/utils/parser";
+import { uploadAndSaveKos, getAllKos } from "@/actions/kosActions";
+import Image from "next/image";
 
 export default function Home() {
   // State Form & Loading
-  const [template, setTemplate] = useState('');
+  const [template, setTemplate] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
 
   // State Live Preview
   const [preview, setPreview] = useState<ReturnType<typeof parseChatKos> | null>(null);
 
   // State Pencarian & Database
   const [allKosData, setAllKosData] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -47,29 +47,24 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
+    setMessage("");
 
     const formData = new FormData(e.currentTarget);
     const result = await uploadAndSaveKos(formData);
 
     setLoading(false);
     if (result.success) {
-      setMessage('✅ ' + result.message);
-      setTemplate('');
+      setMessage("✅ " + result.message);
+      setTemplate("");
       (e.target as HTMLFormElement).reset();
       refreshData();
     } else {
-      setMessage('❌ Error: ' + result.error);
+      setMessage("❌ Error: " + result.error);
     }
   };
 
   // Filter pencarian: nama kos, jenis kos, dan kota
-  const filteredKos = allKosData.filter(
-    (kos) =>
-      kos.namaKos?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      kos.kota?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      kos.jenis?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredKos = allKosData.filter((kos) => kos.namaKos?.toLowerCase().includes(searchQuery.toLowerCase()) || kos.kota?.toLowerCase().includes(searchQuery.toLowerCase()) || kos.jenis?.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -84,13 +79,9 @@ export default function Home() {
           <Image src="/babookos.webp" alt="Baboo Kos Logo" width={30} height={30} priority />
         </div>
 
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-          Bot Kos Dashboard
-        </h1>
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">Bot Kos Dashboard</h1>
 
-        <p className="text-xs sm:text-sm text-gray-500">
-          Otomatisasi Input & Update Data Real-time ke Google Sheets (per Kota & Kategori)
-        </p>
+        <p className="text-xs sm:text-sm text-gray-500">Otomatisasi Input & Update Data Real-time ke Google Sheets (per Kota & Kategori)</p>
       </div>
 
       {/* ================= SECTION 1: INPUT & PREVIEW (GRID) ================= */}
@@ -101,14 +92,12 @@ export default function Home() {
             <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4">Form Input Data</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
-                  Paste Template Kos Di Sini
-                </label>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">Paste Template Kos Di Sini</label>
                 <textarea
                   name="chatTemplate"
                   rows={10}
                   required
-                  placeholder={'[KOTA] Malang\n[KATEGORI] Endorse\n[NAMA KOS] Kost..'}
+                  placeholder={"[KOTA].."}
                   value={template}
                   onChange={(e) => setTemplate(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] font-mono text-xs sm:text-sm bg-gray-50 text-black"
@@ -116,9 +105,7 @@ export default function Home() {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">
-                  Link Google Drive Foto Kos
-                </label>
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-1.5">Link Google Drive Foto Kos</label>
 
                 <textarea
                   name="gdriveLinks"
@@ -134,29 +121,21 @@ export default function Home() {
                 type="submit"
                 disabled={loading}
                 className={`w-full py-3 rounded-lg text-xs sm:text-sm font-semibold text-white transition-all duration-300 shadow-sm flex items-center justify-center gap-2 ${
-                  loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#6B7340] hover:bg-[#5C6336] active:scale-[0.98]'
+                  loading ? "bg-gray-400 cursor-not-allowed" : "bg-[#6B7340] hover:bg-[#5C6336] active:scale-[0.98]"
                 }`}
               >
                 {loading && (
                   <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                 )}
-                {loading ? 'Sedang Memproses & Sinkronisasi...' : 'Proses Data Otomatis'}
+                {loading ? "Sedang Memproses & Sinkronisasi..." : "Proses Data Otomatis"}
               </button>
             </form>
           </div>
 
-          {message && (
-            <div className="mt-4 p-3 rounded-lg text-xs sm:text-sm text-center bg-[#F5F6EF] border border-[#D7DDBA] font-medium text-[#6B7340] break-words">
-              {message}
-            </div>
-          )}
+          {message && <div className="mt-4 p-3 rounded-lg text-xs sm:text-sm text-center bg-[#F5F6EF] border border-[#D7DDBA] font-medium text-[#6B7340] break-words">{message}</div>}
         </div>
 
         {/* KANAN: Live Preview Panel */}
@@ -169,56 +148,56 @@ export default function Home() {
           {preview ? (
             <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[420px] lg:max-h-[460px] text-xs sm:text-sm text-gray-700 bg-gray-50 p-3 sm:p-4 rounded-lg border border-dashed border-gray-300">
               <p>
-                <strong>Kota:</strong>{' '}
-                <span className="bg-gray-200 px-1.5 py-0.5 rounded text-xs font-medium">{preview.KOTA || '-'}</span>
-                {' '}
-                <span className="text-xxs text-gray-400">
-                  ({preview.KOTA ? 'sheet akan dibuat otomatis jika belum ada' : 'wajib diisi!'})
-                </span>
+                <strong>Kota:</strong> <span className="bg-gray-200 px-1.5 py-0.5 rounded text-xs font-medium">{preview.KOTA || "-"}</span>{" "}
+                <span className="text-xxs text-gray-400">({preview.KOTA ? "sheet akan dibuat otomatis jika belum ada" : "wajib diisi!"})</span>
               </p>
               <p>
-                <strong>Kategori:</strong>{' '}
+                <strong>Kategori:</strong>{" "}
                 {preview.KATEGORI ? (
-                  <span className="px-1.5 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">
-                    {preview.KATEGORI}
-                  </span>
+                  <span className="px-1.5 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">{preview.KATEGORI}</span>
                 ) : (
                   <span className="text-gray-400">- (tidak masuk sheet kategori)</span>
                 )}
-                <span className="text-xxs text-gray-400 ml-1">
-                  (opsi: {KATEGORI_VALID.join(', ')})
-                </span>
+                <span className="text-xxs text-gray-400 ml-1">(opsi: {KATEGORI_VALID.join(", ")})</span>
               </p>
               <p>
-                <strong>Nama Kos:</strong> <span className="text-[#6B7340] font-semibold">{preview.NAMA_KOS || '-'}</span>
+                <strong>Nama Kos:</strong> <span className="text-[#6B7340] font-semibold">{preview.NAMA_KOS || "-"}</span>
               </p>
               <div className="flex items-center gap-2">
                 <strong>Jenis:</strong>
-                <select
-                  value={preview.JENIS || ''}
-                  onChange={() => {}}
-                  className="border border-gray-300 rounded px-2 py-1 text-xs bg-white"
-                >
+                <select value={preview.JENIS || ""} onChange={() => {}} className="border border-gray-300 rounded px-2 py-1 text-xs bg-white">
                   <option value="">- (tidak terdeteksi)</option>
                   {JENIS_VALID.map((j) => (
-                    <option key={j} value={j}>{j}</option>
+                    <option key={j} value={j}>
+                      {j}
+                    </option>
                   ))}
                 </select>
                 <span className="text-xxs text-gray-400">(auto-deteksi, bisa override pakai tag [JENIS])</span>
               </div>
               <p>
-                <strong>Tanggal Input:</strong> {preview.TANGGAL_INPUT || '-'}
-                {preview.tanggalIsFallback && (
-                  <span className="text-amber-600 text-xxs ml-1">⚠️ format salah, dipakai tanggal hari ini</span>
-                )}
+                <strong>Tanggal Input:</strong> {preview.TANGGAL_INPUT || "-"}
+                {preview.tanggalIsFallback && <span className="text-amber-600 text-xxs ml-1">⚠️ format salah, dipakai tanggal hari ini</span>}
               </p>
-              <p><strong>Alamat:</strong> {preview.ALAMAT || '-'}</p>
-              <p><strong>Nomor/CP:</strong> <span className="font-mono">{preview.CP || '-'}</span></p>
-              <p><strong>Harga:</strong> {preview.HARGA || '-'}</p>
-              <p><strong>Nearby:</strong> {preview.NEARBY || '-'}</p>
-              <p><strong>Fasilitas:</strong> {preview.FASILITAS || '-'}</p>
+              <p>
+                <strong>Alamat:</strong> {preview.ALAMAT || "-"}
+              </p>
+              <p>
+                <strong>Nomor/CP:</strong> <span className="font-mono">{preview.CP || "-"}</span>
+              </p>
+              <p>
+                <strong>Harga:</strong> {preview.HARGA || "-"}
+              </p>
+              <p>
+                <strong>Nearby:</strong> {preview.NEARBY || "-"}
+              </p>
+              <p>
+                <strong>Fasilitas:</strong> {preview.FASILITAS || "-"}
+              </p>
               {preview.KATEGORI && (
-                <p><strong>Kamar Kosong:</strong> {preview.KAMAR_KOSONG || '-'}</p>
+                <p>
+                  <strong>Kamar Kosong:</strong> {preview.KAMAR_KOSONG || "-"}
+                </p>
               )}
             </div>
           ) : (
@@ -248,7 +227,10 @@ export default function Home() {
             <p className="text-xs text-gray-500 mt-1.5">
               Ditemukan <span className="font-semibold text-gray-700">{filteredKos.length}</span> kos
               {searchQuery && (
-                <> untuk &quot;<span className="font-semibold">{searchQuery}</span>&quot;</>
+                <>
+                  {" "}
+                  untuk &quot;<span className="font-semibold">{searchQuery}</span>&quot;
+                </>
               )}
             </p>
           </div>
@@ -275,23 +257,17 @@ export default function Home() {
                   <tr key={kos.idKos} className="hover:bg-gray-50 transition">
                     <td className="px-4 py-3 font-semibold text-gray-900">{kos.namaKos}</td>
                     <td className="px-4 py-3">
-                      <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">
-                        {kos.kota}
-                      </span>
+                      <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">{kos.kota}</span>
                     </td>
                     <td className="px-4 py-3">{kos.jenis}</td>
-                    <td className="px-4 py-3 truncate max-w-xs" title={kos.alamat}>{kos.alamat}</td>
+                    <td className="px-4 py-3 truncate max-w-xs" title={kos.alamat}>
+                      {kos.alamat}
+                    </td>
                     <td className="px-4 py-3">{kos.harga}</td>
                     <td className="px-4 py-3 font-mono text-xs">{kos.cp}</td>
                     <td className="px-4 py-3">
                       {kos.foto?.map((foto: any, index: number) => (
-                        <a
-                          key={index}
-                          href={foto.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block text-[#6B7340] hover:underline"
-                        >
+                        <a key={index} href={foto.url} target="_blank" rel="noreferrer" className="block text-[#6B7340] hover:underline">
                           {foto.name}
                         </a>
                       ))}
@@ -301,7 +277,9 @@ export default function Home() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400 bg-gray-50">Data tidak ditemukan.</td>
+                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400 bg-gray-50">
+                    Data tidak ditemukan.
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -317,21 +295,21 @@ export default function Home() {
                   <h3 className="font-bold text-gray-900 text-sm">{kos.namaKos}</h3>
                   <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] rounded text-xxs font-semibold uppercase">{kos.kota}</span>
                 </div>
-                <p><strong>Jenis:</strong> {kos.jenis} | <strong>Kontak:</strong> <span className="font-mono">{kos.cp}</span></p>
-                <p><strong>Harga:</strong> {kos.harga}</p>
-                <p className="line-clamp-2"><strong>Alamat:</strong> {kos.alamat}</p>
+                <p>
+                  <strong>Jenis:</strong> {kos.jenis} | <strong>Kontak:</strong> <span className="font-mono">{kos.cp}</span>
+                </p>
+                <p>
+                  <strong>Harga:</strong> {kos.harga}
+                </p>
+                <p className="line-clamp-2">
+                  <strong>Alamat:</strong> {kos.alamat}
+                </p>
 
                 <div className="pt-1 flex flex-wrap gap-1 items-center">
                   <span className="font-semibold text-gray-700 mr-1">Foto ({kos.foto ? kos.foto.length : 0}):</span>
                   {kos.foto && kos.foto.length > 0 ? (
                     kos.foto.map((foto: any, index: number) => (
-                      <a
-                        key={index}
-                        href={foto.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-white border border-gray-300 rounded px-2 py-0.5 text-xxs font-medium text-[#6B7340] active:bg-[#F5F6EF]"
-                      >
+                      <a key={index} href={foto.url} target="_blank" rel="noreferrer" className="bg-white border border-gray-300 rounded px-2 py-0.5 text-xxs font-medium text-[#6B7340] active:bg-[#F5F6EF]">
                         {foto.name}
                       </a>
                     ))
@@ -339,24 +317,16 @@ export default function Home() {
                     <span className="text-gray-400 text-xxs">Kosong</span>
                   )}
                 </div>
-                <div className="text-right text-xxs text-gray-400 pt-1 border-t border-gray-200/60 font-mono">
-                  Input: {kos.tanggalInput}
-                </div>
+                <div className="text-right text-xxs text-gray-400 pt-1 border-t border-gray-200/60 font-mono">Input: {kos.tanggalInput}</div>
               </div>
             ))
           ) : (
-            <div className="text-center py-8 text-gray-400 text-xs bg-gray-50 rounded-lg border border-dashed border-gray-200">
-              Data tidak ditemukan.
-            </div>
+            <div className="text-center py-8 text-gray-400 text-xs bg-gray-50 rounded-lg border border-dashed border-gray-200">Data tidak ditemukan.</div>
           )}
         </div>
 
         <div className="flex justify-center items-center gap-3 mt-6">
-          <button
-            onClick={() => setCurrentPage((prev) => prev - 1)}
-            disabled={currentPage === 1}
-            className="px-4 py-2 border rounded-lg disabled:opacity-50"
-          >
+          <button onClick={() => setCurrentPage((prev) => prev - 1)} disabled={currentPage === 1} className="px-4 py-2 border rounded-lg disabled:opacity-50">
             Prev
           </button>
 
@@ -364,11 +334,7 @@ export default function Home() {
             Halaman {currentPage} dari {totalPages || 1}
           </span>
 
-          <button
-            onClick={() => setCurrentPage((prev) => prev + 1)}
-            disabled={currentPage === totalPages || totalPages === 0}
-            className="px-4 py-2 border rounded-lg disabled:opacity-50"
-          >
+          <button onClick={() => setCurrentPage((prev) => prev + 1)} disabled={currentPage === totalPages || totalPages === 0} className="px-4 py-2 border rounded-lg disabled:opacity-50">
             Next
           </button>
         </div>
