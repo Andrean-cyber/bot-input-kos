@@ -5,6 +5,7 @@ import { google } from 'googleapis';
 import { parseChatKos } from '@/utils/parser';
 
 const SPREADSHEET_ID = '1Nc-TdrO-NqXF7FgkaY1JWAezyFfImImLYfLzf0gfmV0';
+
 function extractFolderId(url: string): string | null {
   const match = url.match(/folders\/([a-zA-Z0-9_-]+)/);
   return match ? match[1] : null;
@@ -114,6 +115,139 @@ async function applyCellFormatting(
   } catch (error) {
     // Format gagal bukan error fatal, jadi cukup di-log saja
     console.error(`Gagal menerapkan format pada sheet "${sheetTitle}":`, error);
+  }
+}
+
+// Helper memastikan sheet master kota tersedia. Kalau belum ada,
+// sheet dibuat otomatis berisi daftar kota default yang bisa
+// ditambah/diedit manual nanti tanpa perlu ubah kode.
+async function ensureMasterKotaSheet(sheets: any) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SPREADSHEET_ID,
+    fields: 'sheets.properties',
+  });
+
+  const exists = meta.data.sheets?.some(
+    (s: any) => s.properties.title === 'MASTER_KOTA'
+  );
+
+  if (exists) return;
+
+  // Buat sheet baru
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          addSheet: {
+            properties: { title: 'MASTER_KOTA' },
+          },
+        },
+      ],
+    },
+  });
+
+  // Isi daftar kota default
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: 'MASTER_KOTA!A1',
+    valueInputOption: 'USER_ENTERED',
+    requestBody: {
+      values: [
+        ['Kota'],
+        ['Malang'],
+        ['Surabaya'],
+        ['Bali'],
+      ],
+    },
+  });
+}
+
+// Helper untuk menerapkan dropdown (data validation) otomatis
+// pada kolom Kota, Jenis, dan Status di sheet DATA_KOS.
+// Range tidak dibatasi endRowIndex, jadi baris baru yang
+// ditambahkan via append() otomatis ikut punya dropdown.
+async function applyDropdownValidation(sheets: any) {
+  try {
+    await ensureMasterKotaSheet(sheets);
+    const sheetId = await getSheetIdByTitle(sheets, 'DATA_KOS');
+
+    const requests = [
+      // Kolom C = Kota (index 2) -> merujuk ke MASTER_KOTA
+      {
+        setDataValidation: {
+          range: {
+            sheetId,
+            startRowIndex: 1, // skip header
+            startColumnIndex: 2,
+            endColumnIndex: 3,
+          },
+          rule: {
+            condition: {
+              type: 'ONE_OF_RANGE',
+              values: [
+                { userEnteredValue: 'MASTER_KOTA!A2:A1000' },
+              ],
+            },
+            strict: true,
+            showCustomUi: true,
+          },
+        },
+      },
+      // Kolom D = Jenis (index 3)
+      {
+        setDataValidation: {
+          range: {
+            sheetId,
+            startRowIndex: 1,
+            startColumnIndex: 3,
+            endColumnIndex: 4,
+          },
+          rule: {
+            condition: {
+              type: 'ONE_OF_LIST',
+              values: [
+                { userEnteredValue: 'Putra' },
+                { userEnteredValue: 'Putri' },
+                { userEnteredValue: 'Campur' },
+              ],
+            },
+            strict: true,
+            showCustomUi: true,
+          },
+        },
+      },
+      // Kolom E = Status (index 4)
+      {
+        setDataValidation: {
+          range: {
+            sheetId,
+            startRowIndex: 1,
+            startColumnIndex: 4,
+            endColumnIndex: 5,
+          },
+          rule: {
+            condition: {
+              type: 'ONE_OF_LIST',
+              values: [
+                { userEnteredValue: 'Aktif' },
+                { userEnteredValue: 'Nonaktif' },
+              ],
+            },
+            strict: true,
+            showCustomUi: true,
+          },
+        },
+      },
+    ];
+
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { requests },
+    });
+  } catch (error) {
+    // Validasi gagal bukan error fatal, jadi cukup di-log saja
+    console.error('Gagal menerapkan dropdown validation:', error);
   }
 }
 
@@ -239,6 +373,9 @@ export async function uploadAndSaveKos(formData: FormData) {
     // 4. RAPIKAN TAMPILAN: rata tengah + auto wrap di kedua sheet
     await applyCellFormatting(sheets, 'DATA_KOS', 13);   // kolom A:M = 13 kolom
     await applyCellFormatting(sheets, 'DATA_KAMAR', 4);  // kolom A:D = 4 kolom
+
+    // 5. PASTIKAN DROPDOWN OTOMATIS UNTUK KOTA, JENIS, STATUS
+    await applyDropdownValidation(sheets);
 
     return { 
       success: true, 
