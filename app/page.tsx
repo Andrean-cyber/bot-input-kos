@@ -41,6 +41,11 @@ export default function Home() {
     }
   }, [template]);
 
+  // Reset ke halaman 1 setiap kali kata kunci pencarian berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
   // Handle Submit Form
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -61,10 +66,11 @@ export default function Home() {
     }
   };
 
-  // Filter pencarian
+  // Filter pencarian: nama kos, jenis kos, dan kota
   const filteredKos = allKosData.filter(kos => 
     kos.namaKos?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    kos.kota?.toLowerCase().includes(searchQuery.toLowerCase())
+    kos.kota?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    kos.jenis?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -236,11 +242,17 @@ const totalPages = Math.ceil(filteredKos.length / itemsPerPage);
           <div className="w-full sm:w-72">
             <input
               type="text"
-              placeholder="Cari nama kos atau kota..."
+              placeholder="Cari nama kos, jenis, atau kota..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full p-2.5 border border-gray-300 rounded-lg text-xs sm:text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#6B7340] text-black"
             />
+            <p className="text-xs text-gray-500 mt-1.5">
+              Ditemukan <span className="font-semibold text-gray-700">{filteredKos.length}</span> kos
+              {searchQuery && (
+                <> untuk &quot;<span className="font-semibold">{searchQuery}</span>&quot;</>
+              )}
+            </p>
           </div>
         </div>
 
