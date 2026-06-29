@@ -194,7 +194,7 @@ async function styleNewSheet(sheets: any, sheetId: number, numColumns: number) {
         cell: {
           userEnteredFormat: {
             horizontalAlignment: "LEFT",
-            verticalAlignment: "TOP",
+            verticalAlignment: "MIDDLE",
             wrapStrategy: "WRAP",
           },
         },
@@ -319,7 +319,7 @@ async function applyCellFormatting(sheets: any, sheetTitle: string, numColumns: 
             cell: {
               userEnteredFormat: {
                 horizontalAlignment: "LEFT",
-                verticalAlignment: "TOP",
+                verticalAlignment: "MIDDLE",
                 wrapStrategy: "WRAP",
               },
             },
