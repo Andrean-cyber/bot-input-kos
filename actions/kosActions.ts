@@ -1,34 +1,38 @@
 "use server";
 
 import { google } from "googleapis";
-import { parseChatKos, KATEGORI_VALID, JENIS_VALID } from "@/utils/parser";
+import { parseChatKos, JENIS_VALID } from "@/utils/parser";
 
-const SPREADSHEET_ID = "1Nc-TdrO-NqXF7FgkaY1JWAezyFfImImLYfLzf0gfmV0";
+const SPREADSHEET_ID = "1v-55v7jXKlHM1WUWRvwes68FnfjN2hBu0knH2LCwy4s";
 
-// Header untuk sheet KOTA (10 kolom, tanpa "Kamar Kosong")
-// Index kolom: 0=NO 1=Nama Kos 2=Jenis 3=Tanggal Input 4=Alamat 5=Nomor 6=Fasilitas 7=Harga 8=Nearby 9=Folder Drive URL
-const HEADER_KOTA = ["NO", "Nama Kos", "Jenis", "Tanggal Input", "Alamat", "Nomor", "Fasilitas", "Harga", "Nearby", "FOLDER DRIVE URL"];
+// Index kolom: 0=NO 1=Nama Kos 2=Jenis 3=Tanggal Input 4=Alamat 5=Nomor 6=Fasilitas 7=Harga 8=Foto 9=Ket
+const HEADER = ["NO", "Nama Kos", "Jenis", "Tanggal Input", "Alamat", "Nomor", "Fasilitas", "Harga", "Foto", "Ket"];
 
-// Header untuk sheet KATEGORI (12 kolom, + "Kamar Kosong" + "Kategori")
-const HEADER_KATEGORI = ["NO", "Nama Kos", "Jenis", "Tanggal Input", "Alamat", "Nomor", "Fasilitas", "Harga", "Nearby", "FOLDER DRIVE URL", "Kamar Kosong", "Kategori"];
+// Sheet-sheet non-kota yang tidak boleh ikut ditampilkan/diproses sebagai data kos
+const EXCLUDED_SHEETS = ["MASTER", "MASTERPIECE / HIDDEN GEM", "MITRA / ENDORSE", "MITRA", "MoU", "Malang Lama"];
 
-// Kolom dengan teks panjang -> rata kiri
-const LEFT_ALIGN_COLUMNS = [1, 4, 6, 8, 9]; // Nama Kos, Alamat, Fasilitas, Nearby, Folder Drive URL
+function isExcludedSheet(title: string): boolean {
+  return EXCLUDED_SHEETS.some((excluded) => excluded.toLowerCase() === title.toLowerCase());
+}
 
-// Kolom dengan teks sangat panjang -> wrap ke bawah + lebar 200px
-const WRAP_COLUMNS = [1, 4, 6, 7, 8, 9]; // Alamat, Fasilitas, Harga, Nearby, FOLDER DRIVE URL
+const LEFT_ALIGN_COLUMNS = [1, 4, 6, 8, 9]; // Nama Kos, Alamat, Fasilitas, Foto, Ket
+const WRAP_COLUMNS = [1, 4, 6, 7, 8, 9];
 
-const NO_COLUMN_WIDTH = 50; // px, khusus kolom NO
-const UNIFORM_COLUMN_WIDTH = 160; // px, kolom standar
-const WIDE_COLUMN_WIDTH = 300; // px, kolom teks panjang (Alamat, Fasilitas, Nearby)
-const UNIFORM_ROW_HEIGHT = 40; // px, semua baris
+const NO_COLUMN_WIDTH = 50;
+const UNIFORM_COLUMN_WIDTH = 160;
+const WIDE_COLUMN_WIDTH = 300;
+const UNIFORM_ROW_HEIGHT = 40;
 
-const HEADER_BG_COLOR = { red: 0.18, green: 0.36, blue: 0.69 }; // biru
-const HEADER_TEXT_COLOR = { red: 1, green: 1, blue: 1 }; // putih
+const HEADER_BG_COLOR = { red: 0.18, green: 0.36, blue: 0.69 };
+const HEADER_TEXT_COLOR = { red: 1, green: 1, blue: 1 };
 
 function extractFolderId(url: string): string | null {
-  const match = url.match(/folders\/([a-zA-Z0-9_-]+)/);
-  return match ? match[1] : null;
+  const patterns = [/folders\/([a-zA-Z0-9_-]+)/, /\/d\/([a-zA-Z0-9_-]+)/, /[?&]id=([a-zA-Z0-9_-]+)/];
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 async function getFolderName(folderUrl: string) {
@@ -43,17 +47,12 @@ async function getFolderName(folderUrl: string) {
 
     const drive = google.drive({ version: "v3", auth });
     const folderId = extractFolderId(folderUrl);
-
     if (!folderId) return "Folder Tidak Diketahui";
 
-    const response = await drive.files.get({
-      fileId: folderId,
-      fields: "name",
-    });
-
+    const response = await drive.files.get({ fileId: folderId, fields: "name" });
     return response.data.name || "Folder Tanpa Nama";
   } catch (error) {
-    console.error("Gagal mengambil nama folder:", error);
+    console.error("Gagal mengambil nama folder:", folderUrl, error);
     return "Folder Tidak Diketahui";
   }
 }
@@ -82,6 +81,37 @@ async function getAllSheetTitles(sheets: any): Promise<string[]> {
   return allSheets.map((s: any) => s.properties.title);
 }
 
+// Validasi struktur header sebuah sheet supaya hanya sheet kos asli (HEADER yang cocok)
+// yang dianggap sebagai "sheet kota". Sheet lain (log, rekap, dsb) otomatis di-skip
+// walau namanya tidak ada di EXCLUDED_SHEETS.
+async function isValidKosSheet(sheets: any, title: string): Promise<boolean> {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${title}!A1:J1`,
+    });
+    const headerRow = response.data.values?.[0] || [];
+
+    return (
+      headerRow[0]?.trim() === "NO" &&
+      headerRow[1]?.trim() === "Nama Kos" &&
+      headerRow[2]?.trim() === "Jenis"
+    );
+  } catch (error) {
+    console.error(`Gagal validasi header sheet "${title}":`, error);
+    return false;
+  }
+}
+
+async function getValidKotaTitles(sheets: any): Promise<string[]> {
+  const allTitles = await getAllSheetTitles(sheets);
+  const candidateTitles = allTitles.filter((title) => !isExcludedSheet(title));
+
+  const validityChecks = await Promise.all(candidateTitles.map((t) => isValidKosSheet(sheets, t)));
+
+  return candidateTitles.filter((_, i) => validityChecks[i]);
+}
+
 async function getSheetIdByTitle(sheets: any, title: string): Promise<number | null> {
   const allSheets = await getAllSheetsMeta(sheets);
   const sheet = allSheets.find((s: any) => s.properties.title === title);
@@ -91,9 +121,7 @@ async function getSheetIdByTitle(sheets: any, title: string): Promise<number | n
 async function styleNewSheet(sheets: any, sheetId: number, numColumns: number) {
   const jenisColIndex = 2;
 
-  // Mulai dengan block-block yang bisa langsung masuk array
   const requests: any[] = [
-    // Kolom NO: lebar kecil
     {
       updateDimensionProperties: {
         range: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: 1 },
@@ -101,7 +129,6 @@ async function styleNewSheet(sheets: any, sheetId: number, numColumns: number) {
         fields: "pixelSize",
       },
     },
-    // Kolom 1 ke atas: lebar seragam
     {
       updateDimensionProperties: {
         range: { sheetId, dimension: "COLUMNS", startIndex: 1, endIndex: numColumns },
@@ -109,7 +136,6 @@ async function styleNewSheet(sheets: any, sheetId: number, numColumns: number) {
         fields: "pixelSize",
       },
     },
-    // Semua baris: tinggi seragam
     {
       updateDimensionProperties: {
         range: { sheetId, dimension: "ROWS", startIndex: 0, endIndex: 2000 },
@@ -117,7 +143,6 @@ async function styleNewSheet(sheets: any, sheetId: number, numColumns: number) {
         fields: "pixelSize",
       },
     },
-    // Header: bold, center, biru, putih, clip
     {
       repeatCell: {
         range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: numColumns },
@@ -133,30 +158,23 @@ async function styleNewSheet(sheets: any, sheetId: number, numColumns: number) {
         fields: "userEnteredFormat(backgroundColor,horizontalAlignment,verticalAlignment,wrapStrategy,textFormat)",
       },
     },
-    // Freeze baris header
     {
       updateSheetProperties: {
         properties: { sheetId, gridProperties: { frozenRowCount: 1 } },
         fields: "gridProperties.frozenRowCount",
       },
     },
-    // Body default: tengah + clip
     {
       repeatCell: {
         range: { sheetId, startRowIndex: 1, startColumnIndex: 0, endColumnIndex: numColumns },
         cell: {
-          userEnteredFormat: {
-            horizontalAlignment: "CENTER",
-            verticalAlignment: "MIDDLE",
-            wrapStrategy: "CLIP",
-          },
+          userEnteredFormat: { horizontalAlignment: "CENTER", verticalAlignment: "MIDDLE", wrapStrategy: "CLIP" },
         },
         fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)",
       },
     },
   ];
 
-  // Override lebar kolom teks panjang ke WIDE_COLUMN_WIDTH
   WRAP_COLUMNS.filter((col) => col < numColumns).forEach((colIndex) => {
     requests.push({
       updateDimensionProperties: {
@@ -167,86 +185,45 @@ async function styleNewSheet(sheets: any, sheetId: number, numColumns: number) {
     });
   });
 
-  // Override rata kiri untuk kolom teks panjang
   LEFT_ALIGN_COLUMNS.forEach((colIndex) => {
     if (colIndex < numColumns) {
       requests.push({
         repeatCell: {
           range: { sheetId, startRowIndex: 1, startColumnIndex: colIndex, endColumnIndex: colIndex + 1 },
-          cell: {
-            userEnteredFormat: {
-              horizontalAlignment: "LEFT",
-              verticalAlignment: "MIDDLE",
-              wrapStrategy: "CLIP",
-            },
-          },
+          cell: { userEnteredFormat: { horizontalAlignment: "LEFT", verticalAlignment: "MIDDLE", wrapStrategy: "CLIP" } },
           fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)",
         },
       });
     }
   });
 
-  // Override WRAP untuk kolom teks sangat panjang (Alamat, Fasilitas, Nearby)
   WRAP_COLUMNS.filter((col) => col < numColumns).forEach((colIndex) => {
     requests.push({
       repeatCell: {
         range: { sheetId, startRowIndex: 1, startColumnIndex: colIndex, endColumnIndex: colIndex + 1 },
-        cell: {
-          userEnteredFormat: {
-            horizontalAlignment: "LEFT",
-            verticalAlignment: "MIDDLE",
-            wrapStrategy: "WRAP",
-          },
-        },
+        cell: { userEnteredFormat: { horizontalAlignment: "LEFT", verticalAlignment: "MIDDLE", wrapStrategy: "WRAP" } },
         fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)",
       },
     });
   });
 
-  // Dropdown data-validation untuk kolom Jenis
   requests.push({
     setDataValidation: {
       range: { sheetId, startRowIndex: 1, endRowIndex: 2000, startColumnIndex: jenisColIndex, endColumnIndex: jenisColIndex + 1 },
       rule: {
-        condition: {
-          type: "ONE_OF_LIST",
-          values: JENIS_VALID.map((v) => ({ userEnteredValue: v })),
-        },
+        condition: { type: "ONE_OF_LIST", values: JENIS_VALID.map((v) => ({ userEnteredValue: v })) },
         showCustomUi: true,
         strict: false,
       },
     },
   });
 
-  // Dropdown data-validation untuk kolom Kategori (index 11, hanya ada di sheet kategori)
-  if (numColumns > 11) {
-    requests.push({
-      setDataValidation: {
-        range: { sheetId, startRowIndex: 1, endRowIndex: 2000, startColumnIndex: 11, endColumnIndex: 12 },
-        rule: {
-          condition: {
-            type: "ONE_OF_LIST",
-            values: KATEGORI_VALID.map((v) => ({ userEnteredValue: v })),
-          },
-          showCustomUi: true,
-          strict: false,
-        },
-      },
-    });
-  }
-
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: SPREADSHEET_ID,
-    requestBody: { requests },
-  });
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId: SPREADSHEET_ID, requestBody: { requests } });
 }
 
-async function ensureSheetExists(sheets: any, title: string, header: string[]): Promise<boolean> {
+async function ensureSheetExists(sheets: any, title: string): Promise<boolean> {
   const existingTitles = await getAllSheetTitles(sheets);
-
-  if (existingTitles.includes(title)) {
-    return false;
-  }
+  if (existingTitles.includes(title)) return false;
 
   const addSheetResponse = await sheets.spreadsheets.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
@@ -259,99 +236,19 @@ async function ensureSheetExists(sheets: any, title: string, header: string[]): 
     spreadsheetId: SPREADSHEET_ID,
     range: `${title}!A1`,
     valueInputOption: "USER_ENTERED",
-    requestBody: { values: [header] },
+    requestBody: { values: [HEADER] },
   });
 
   if (newSheetId !== undefined && newSheetId !== null) {
-    await styleNewSheet(sheets, newSheetId, header.length);
+    await styleNewSheet(sheets, newSheetId, HEADER.length);
   }
 
   return true;
 }
 
-async function applyCellFormatting(sheets: any, sheetTitle: string, numColumns: number) {
-  try {
-    const sheetId = await getSheetIdByTitle(sheets, sheetTitle);
-    if (sheetId === null) return;
-
-    const requests: any[] = [
-      // Body default: tengah + clip
-      {
-        repeatCell: {
-          range: { sheetId, startRowIndex: 1, startColumnIndex: 0, endColumnIndex: numColumns },
-          cell: {
-            userEnteredFormat: {
-              horizontalAlignment: "CENTER",
-              verticalAlignment: "MIDDLE",
-              wrapStrategy: "CLIP",
-            },
-          },
-          fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)",
-        },
-      },
-    ];
-
-    // Override rata kiri
-    LEFT_ALIGN_COLUMNS.forEach((colIndex) => {
-      if (colIndex < numColumns) {
-        requests.push({
-          repeatCell: {
-            range: { sheetId, startRowIndex: 1, startColumnIndex: colIndex, endColumnIndex: colIndex + 1 },
-            cell: {
-              userEnteredFormat: {
-                horizontalAlignment: "LEFT",
-                verticalAlignment: "MIDDLE",
-                wrapStrategy: "CLIP",
-              },
-            },
-            fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)",
-          },
-        });
-      }
-    });
-
-    // Override WRAP untuk kolom teks sangat panjang
-    WRAP_COLUMNS.forEach((colIndex) => {
-      if (colIndex < numColumns) {
-        requests.push({
-          repeatCell: {
-            range: { sheetId, startRowIndex: 1, startColumnIndex: colIndex, endColumnIndex: colIndex + 1 },
-            cell: {
-              userEnteredFormat: {
-                horizontalAlignment: "LEFT",
-                verticalAlignment: "MIDDLE",
-                wrapStrategy: "WRAP",
-              },
-            },
-            fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)",
-          },
-        });
-
-        // Lebar 200px untuk kolom wrap
-        requests.push({
-          updateDimensionProperties: {
-            range: { sheetId, dimension: "COLUMNS", startIndex: colIndex, endIndex: colIndex + 1 },
-            properties: { pixelSize: WIDE_COLUMN_WIDTH },
-            fields: "pixelSize",
-          },
-        });
-      }
-    });
-
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
-      requestBody: { requests },
-    });
-  } catch (error) {
-    console.error(`Gagal menerapkan format pada sheet "${sheetTitle}":`, error);
-  }
-}
-
-async function upsertRowToSheet(sheets: any, sheetTitle: string, range: string, rowDataWithoutNo: string[], namaKos: string): Promise<{ isUpdate: boolean }> {
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range,
-  });
+async function upsertRowToSheet(sheets: any, sheetTitle: string, rowDataWithoutNo: string[], namaKos: string): Promise<{ isUpdate: boolean }> {
+  const range = `${sheetTitle}!A:J`;
+  const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
 
   const rows: string[][] = response.data.values || [];
   const dataRows = rows.slice(1);
@@ -398,49 +295,40 @@ export async function uploadAndSaveKos(formData: FormData) {
 
     const namaKos = parsedData.NAMA_KOS || "Kos Tanpa Nama";
     const namaKota = (parsedData.KOTA || "").trim();
-    const kategori = parsedData.KATEGORI;
 
     if (!namaKota) {
       throw new Error("Kota tidak terdeteksi! Pastikan tag [KOTA] diisi.");
     }
 
-    const imageUrls = gdriveLinksText
-      .split("\n")
-      .map((link) => link.trim())
-      .filter(Boolean);
-    const folderDriveUrl = imageUrls.join(", ");
+    if (isExcludedSheet(namaKota)) {
+      throw new Error(`Nama kota "${namaKota}" tidak valid karena bentrok dengan sheet sistem.`);
+    }
+
+    const imageUrls = gdriveLinksText.split("\n").map((link) => link.trim()).filter(Boolean);
+    const fotoUrl = imageUrls.join(", ");
 
     const sheets = await getSheetsInstance();
 
-    // 1. Pastikan sheet kota ada
-    const sheetKotaIsNew = await ensureSheetExists(sheets, namaKota, HEADER_KOTA);
+    const sheetIsNew = await ensureSheetExists(sheets, namaKota);
 
-    const baseRowData = [namaKos, parsedData.JENIS, parsedData.TANGGAL_INPUT, parsedData.ALAMAT, "'" + parsedData.CP, parsedData.FASILITAS, parsedData.HARGA, parsedData.NEARBY, folderDriveUrl];
+    // Urutan: Nama Kos, Jenis, Tanggal Input, Alamat, Nomor, Fasilitas, Harga, Foto, Ket
+    const rowData = [
+      namaKos,
+      parsedData.JENIS,
+      parsedData.TANGGAL_INPUT,
+      parsedData.ALAMAT,
+      "'" + parsedData.CP,
+      parsedData.FASILITAS,
+      parsedData.HARGA,
+      fotoUrl,
+      parsedData.NEARBY,
+    ];
 
-    // 2. Upsert ke sheet kota (10 kolom)
-    const kotaResult = await upsertRowToSheet(sheets, namaKota, `${namaKota}!A:J`, baseRowData, namaKos);
+    const result = await upsertRowToSheet(sheets, namaKota, rowData, namaKos);
 
-    await applyCellFormatting(sheets, namaKota, HEADER_KOTA.length);
-
-    // 3. Upsert ke sheet kategori jika kategori valid (12 kolom)
-    let kategoriResult: { isUpdate: boolean } | null = null;
-
-    if (kategori && KATEGORI_VALID.includes(kategori)) {
-      await ensureSheetExists(sheets, kategori, HEADER_KATEGORI);
-
-      const kategoriRowData = [...baseRowData, parsedData.KAMAR_KOSONG, kategori];
-
-      kategoriResult = await upsertRowToSheet(sheets, kategori, `${kategori}!A:L`, kategoriRowData, namaKos);
-
-      await applyCellFormatting(sheets, kategori, HEADER_KATEGORI.length);
-    }
-
-    let message = `Data Kos "${namaKos}" ${kotaResult.isUpdate ? "BERHASIL DIUPDATE" : "BERHASIL DISIMPAN"} di sheet "${namaKota}"`;
-    if (sheetKotaIsNew) {
+    let message = `Data Kos "${namaKos}" ${result.isUpdate ? "BERHASIL DIUPDATE" : "BERHASIL DISIMPAN"} di sheet "${namaKota}"`;
+    if (sheetIsNew) {
       message += ` (sheet kota baru otomatis dibuat & diformat)`;
-    }
-    if (kategoriResult) {
-      message += ` dan juga ${kategoriResult.isUpdate ? "diupdate" : "ditambahkan"} di sheet "${kategori}"`;
     }
     message += ".";
 
@@ -458,9 +346,7 @@ export async function uploadAndSaveKos(formData: FormData) {
 export async function getAllKos() {
   try {
     const sheets = await getSheetsInstance();
-    const allTitles = await getAllSheetTitles(sheets);
-
-    const kotaTitles = allTitles.filter((title) => !KATEGORI_VALID.includes(title));
+    const kotaTitles = await getValidKotaTitles(sheets);
 
     const allData = await Promise.all(
       kotaTitles.map(async (kotaTitle) => {
@@ -475,11 +361,8 @@ export async function getAllKos() {
 
           return await Promise.all(
             rows.slice(1).map(async (row: string[]) => {
-              const folderUrlRaw = row[9] || "";
-              const fotoLinks = folderUrlRaw
-                .split(",")
-                .map((x: string) => x.trim())
-                .filter(Boolean);
+              const fotoRaw = row[8] || "";
+              const fotoLinks = fotoRaw.split(",").map((x: string) => x.trim()).filter(Boolean);
 
               const foto = await Promise.all(
                 fotoLinks.map(async (link: string) => ({
@@ -498,8 +381,8 @@ export async function getAllKos() {
                 cp: row[5],
                 fasilitas: row[6],
                 harga: row[7],
-                nearby: row[8],
                 foto,
+                ket: row[9],
                 kota: kotaTitle,
               };
             }),
@@ -521,8 +404,7 @@ export async function getAllKos() {
 export async function getAllKotaSheets(): Promise<string[]> {
   try {
     const sheets = await getSheetsInstance();
-    const allTitles = await getAllSheetTitles(sheets);
-    return allTitles.filter((title) => !KATEGORI_VALID.includes(title));
+    return await getValidKotaTitles(sheets);
   } catch (error) {
     console.error("Gagal mengambil daftar kota:", error);
     return [];

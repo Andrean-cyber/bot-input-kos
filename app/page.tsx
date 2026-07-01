@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { parseChatKos, JENIS_VALID, KATEGORI_VALID } from "@/utils/parser";
+import { parseChatKos, JENIS_VALID } from "@/utils/parser";
 import { uploadAndSaveKos, getAllKos } from "@/actions/kosActions";
 import Image from "next/image";
 
@@ -81,7 +81,7 @@ export default function Home() {
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">Bot Kos Dashboard</h1>
 
-        <p className="text-xs sm:text-sm text-gray-500">Otomatisasi Input & Update Data Real-time ke Google Sheets (per Kota & Kategori)</p>
+        <p className="text-xs sm:text-sm text-gray-500">Otomatisasi Input & Update Data Real-time ke Google Sheets (per Kota)</p>
       </div>
 
       {/* ================= SECTION 1: INPUT & PREVIEW (GRID) ================= */}
@@ -152,15 +152,6 @@ export default function Home() {
                 <span className="text-xxs text-gray-400">({preview.KOTA ? "sheet akan dibuat otomatis jika belum ada" : "wajib diisi!"})</span>
               </p>
               <p>
-                <strong>Kategori:</strong>{" "}
-                {preview.KATEGORI ? (
-                  <span className="px-1.5 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">{preview.KATEGORI}</span>
-                ) : (
-                  <span className="text-gray-400">- (tidak masuk sheet kategori)</span>
-                )}
-                <span className="text-xxs text-gray-400 ml-1">(opsi: {KATEGORI_VALID.join(", ")})</span>
-              </p>
-              <p>
                 <strong>Nama Kos:</strong> <span className="text-[#6B7340] font-semibold">{preview.NAMA_KOS || "-"}</span>
               </p>
               <div className="flex items-center gap-2">
@@ -189,16 +180,11 @@ export default function Home() {
                 <strong>Harga:</strong> {preview.HARGA || "-"}
               </p>
               <p>
-                <strong>Nearby:</strong> {preview.NEARBY || "-"}
+                <strong>Ket:</strong> {preview.NEARBY || "-"}
               </p>
               <p>
                 <strong>Fasilitas:</strong> {preview.FASILITAS || "-"}
               </p>
-              {preview.KATEGORI && (
-                <p>
-                  <strong>Kamar Kosong:</strong> {preview.KAMAR_KOSONG || "-"}
-                </p>
-              )}
             </div>
           ) : (
             <div className="flex-1 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center text-gray-400 text-center p-6 text-xs sm:text-sm min-h-[150px]">
@@ -244,11 +230,9 @@ export default function Home() {
                 <th className="px-4 py-3">Nama Kos</th>
                 <th className="px-4 py-3">Kota</th>
                 <th className="px-4 py-3">Jenis</th>
-                <th className="px-4 py-3">Alamat</th>
                 <th className="px-4 py-3">Harga</th>
-                <th className="px-4 py-3">Kontak</th>
                 <th className="px-4 py-3">Foto</th>
-                <th className="px-4 py-3">Tanggal Input</th>
+                <th className="px-4 py-3">Fasilitas</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white text-gray-600">
@@ -260,11 +244,7 @@ export default function Home() {
                       <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">{kos.kota}</span>
                     </td>
                     <td className="px-4 py-3">{kos.jenis}</td>
-                    <td className="px-4 py-3 truncate max-w-xs" title={kos.alamat}>
-                      {kos.alamat}
-                    </td>
                     <td className="px-4 py-3">{kos.harga}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{kos.cp}</td>
                     <td className="px-4 py-3">
                       {kos.foto?.map((foto: any, index: number) => (
                         <a key={index} href={foto.url} target="_blank" rel="noreferrer" className="block text-[#6B7340] hover:underline">
@@ -272,12 +252,14 @@ export default function Home() {
                         </a>
                       ))}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400 font-mono">{kos.tanggalInput}</td>
+                    <td className="px-4 py-3 truncate max-w-xs" title={kos.fasilitas}>
+                      {kos.fasilitas}
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400 bg-gray-50">
+                  <td colSpan={6} className="px-4 py-10 text-center text-gray-400 bg-gray-50">
                     Data tidak ditemukan.
                   </td>
                 </tr>
@@ -296,13 +278,13 @@ export default function Home() {
                   <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] rounded text-xxs font-semibold uppercase">{kos.kota}</span>
                 </div>
                 <p>
-                  <strong>Jenis:</strong> {kos.jenis} | <strong>Kontak:</strong> <span className="font-mono">{kos.cp}</span>
+                  <strong>Jenis:</strong> {kos.jenis}
                 </p>
                 <p>
                   <strong>Harga:</strong> {kos.harga}
                 </p>
                 <p className="line-clamp-2">
-                  <strong>Alamat:</strong> {kos.alamat}
+                  <strong>Fasilitas:</strong> {kos.fasilitas}
                 </p>
 
                 <div className="pt-1 flex flex-wrap gap-1 items-center">
@@ -317,7 +299,6 @@ export default function Home() {
                     <span className="text-gray-400 text-xxs">Kosong</span>
                   )}
                 </div>
-                <div className="text-right text-xxs text-gray-400 pt-1 border-t border-gray-200/60 font-mono">Input: {kos.tanggalInput}</div>
               </div>
             ))
           ) : (
