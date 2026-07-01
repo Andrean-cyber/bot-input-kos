@@ -15,7 +15,9 @@ function isExcludedSheet(title: string): boolean {
   return EXCLUDED_SHEETS.some((excluded) => excluded.toLowerCase() === title.toLowerCase());
 }
 
-const LEFT_ALIGN_COLUMNS = [1, 4, 6, 8, 9]; // Nama Kos, Alamat, Fasilitas, Foto, Ket
+// Kolom teks panjang -> horizontal LEFT + wrap WRAP
+// Kolom teks pendek (No, Jenis, Tanggal Input, Nomor) -> horizontal CENTER + wrap CLIP (default)
+const LEFT_ALIGN_COLUMNS = [1, 4, 6, 7, 8, 9]; // Nama Kos, Alamat, Fasilitas, Harga, Foto, Ket
 const WRAP_COLUMNS = [1, 4, 6, 7, 8, 9];
 
 const NO_COLUMN_WIDTH = 50;
@@ -25,37 +27,6 @@ const UNIFORM_ROW_HEIGHT = 40;
 
 const HEADER_BG_COLOR = { red: 0.18, green: 0.36, blue: 0.69 };
 const HEADER_TEXT_COLOR = { red: 1, green: 1, blue: 1 };
-
-function extractFolderId(url: string): string | null {
-  const patterns = [/folders\/([a-zA-Z0-9_-]+)/, /\/d\/([a-zA-Z0-9_-]+)/, /[?&]id=([a-zA-Z0-9_-]+)/];
-  for (const pattern of patterns) {
-    const match = url.match(pattern);
-    if (match) return match[1];
-  }
-  return null;
-}
-
-async function getFolderName(folderUrl: string) {
-  try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-      },
-      scopes: ["https://www.googleapis.com/auth/drive.readonly"],
-    });
-
-    const drive = google.drive({ version: "v3", auth });
-    const folderId = extractFolderId(folderUrl);
-    if (!folderId) return "Folder Tidak Diketahui";
-
-    const response = await drive.files.get({ fileId: folderId, fields: "name" });
-    return response.data.name || "Folder Tanpa Nama";
-  } catch (error) {
-    console.error("Gagal mengambil nama folder:", folderUrl, error);
-    return "Folder Tidak Diketahui";
-  }
-}
 
 async function getSheetsInstance() {
   const auth = new google.auth.GoogleAuth({
@@ -221,9 +192,53 @@ async function styleNewSheet(sheets: any, sheetId: number, numColumns: number) {
   await sheets.spreadsheets.batchUpdate({ spreadsheetId: SPREADSHEET_ID, requestBody: { requests } });
 }
 
-async function ensureSheetExists(sheets: any, title: string): Promise<boolean> {
+// Terapkan format ke SATU baris spesifik (dipanggil setiap kali ada insert/update data):
+// - Semua kolom: vertical MIDDLE
+// - Kolom teks pendek (No, Jenis, Tanggal Input, Nomor): horizontal CENTER + wrap CLIP
+// - Kolom teks panjang (Nama Kos, Alamat, Fasilitas, Harga, Foto, Ket): horizontal LEFT + wrap WRAP
+// Ini memastikan baris tetap rapi walau ditulis ke sheet lama yang formatnya belum di-set oleh styleNewSheet().
+async function formatRow(sheets: any, sheetId: number, rowIndex: number, numColumns: number) {
+  const requests: any[] = [
+    {
+      repeatCell: {
+        range: { sheetId, startRowIndex: rowIndex, endRowIndex: rowIndex + 1, startColumnIndex: 0, endColumnIndex: numColumns },
+        cell: {
+          userEnteredFormat: { horizontalAlignment: "CENTER", verticalAlignment: "MIDDLE", wrapStrategy: "CLIP" },
+        },
+        fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)",
+      },
+    },
+  ];
+
+  WRAP_COLUMNS.filter((col) => col < numColumns).forEach((colIndex) => {
+    requests.push({
+      repeatCell: {
+        range: { sheetId, startRowIndex: rowIndex, endRowIndex: rowIndex + 1, startColumnIndex: colIndex, endColumnIndex: colIndex + 1 },
+        cell: {
+          userEnteredFormat: { horizontalAlignment: "LEFT", verticalAlignment: "MIDDLE", wrapStrategy: "WRAP" },
+        },
+        fields: "userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy)",
+      },
+    });
+  });
+
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId: SPREADSHEET_ID, requestBody: { requests } });
+}
+
+// Cari sheet yang sudah ada secara case-insensitive.
+// Contoh: input "Jakarta" akan tetap ketemu sheet yang sudah ada bernama "JAKARTA".
+async function findExistingSheetTitle(sheets: any, title: string): Promise<string | null> {
   const existingTitles = await getAllSheetTitles(sheets);
-  if (existingTitles.includes(title)) return false;
+  const found = existingTitles.find((t) => t.toLowerCase() === title.toLowerCase());
+  return found || null;
+}
+
+async function ensureSheetExists(sheets: any, title: string): Promise<{ isNew: boolean; actualTitle: string }> {
+  const existing = await findExistingSheetTitle(sheets, title);
+  if (existing) {
+    // Sheet sudah ada (case-insensitive match) -> pakai nama asli yang tersimpan di spreadsheet
+    return { isNew: false, actualTitle: existing };
+  }
 
   const addSheetResponse = await sheets.spreadsheets.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
@@ -243,10 +258,16 @@ async function ensureSheetExists(sheets: any, title: string): Promise<boolean> {
     await styleNewSheet(sheets, newSheetId, HEADER.length);
   }
 
-  return true;
+  return { isNew: true, actualTitle: title };
 }
 
-async function upsertRowToSheet(sheets: any, sheetTitle: string, rowDataWithoutNo: string[], namaKos: string): Promise<{ isUpdate: boolean }> {
+async function upsertRowToSheet(
+  sheets: any,
+  sheetTitle: string,
+  sheetId: number,
+  rowDataWithoutNo: string[],
+  namaKos: string,
+): Promise<{ isUpdate: boolean }> {
   const range = `${sheetTitle}!A:J`;
   const response = await sheets.spreadsheets.values.get({ spreadsheetId: SPREADSHEET_ID, range });
 
@@ -255,10 +276,12 @@ async function upsertRowToSheet(sheets: any, sheetTitle: string, rowDataWithoutN
 
   const existingIndex = dataRows.findIndex((row) => row[1] && row[1].toLowerCase().trim() === namaKos.toLowerCase().trim());
 
+  const numColumns = HEADER.length;
+
   if (existingIndex !== -1) {
     const noLama = dataRows[existingIndex][0];
     const fullRow = [noLama, ...rowDataWithoutNo];
-    const actualRowNumber = existingIndex + 2;
+    const actualRowNumber = existingIndex + 2; // +1 header, +1 karena 1-indexed
     const lastColLetter = String.fromCharCode(65 + fullRow.length - 1);
 
     await sheets.spreadsheets.values.update({
@@ -268,10 +291,14 @@ async function upsertRowToSheet(sheets: any, sheetTitle: string, rowDataWithoutN
       requestBody: { values: [fullRow] },
     });
 
+    // rowIndex untuk batchUpdate bersifat 0-based -> actualRowNumber (1-based) dikurangi 1
+    await formatRow(sheets, sheetId, actualRowNumber - 1, numColumns);
+
     return { isUpdate: true };
   } else {
     const newNo = dataRows.length + 1;
     const fullRow = [newNo, ...rowDataWithoutNo];
+    const newRowNumber = dataRows.length + 2; // +1 header, +1 karena 1-indexed
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
@@ -279,6 +306,8 @@ async function upsertRowToSheet(sheets: any, sheetTitle: string, rowDataWithoutN
       valueInputOption: "USER_ENTERED",
       requestBody: { values: [fullRow] },
     });
+
+    await formatRow(sheets, sheetId, newRowNumber - 1, numColumns);
 
     return { isUpdate: false };
   }
@@ -309,7 +338,12 @@ export async function uploadAndSaveKos(formData: FormData) {
 
     const sheets = await getSheetsInstance();
 
-    const sheetIsNew = await ensureSheetExists(sheets, namaKota);
+    const { isNew: sheetIsNew, actualTitle: sheetTitleToUse } = await ensureSheetExists(sheets, namaKota);
+    const sheetId = await getSheetIdByTitle(sheets, sheetTitleToUse);
+
+    if (sheetId === null) {
+      throw new Error(`Gagal menemukan sheet "${sheetTitleToUse}" untuk menyimpan data.`);
+    }
 
     // Urutan: Nama Kos, Jenis, Tanggal Input, Alamat, Nomor, Fasilitas, Harga, Foto, Ket
     const rowData = [
@@ -324,17 +358,13 @@ export async function uploadAndSaveKos(formData: FormData) {
       parsedData.NEARBY,
     ];
 
-    const result = await upsertRowToSheet(sheets, namaKota, rowData, namaKos);
+    const result = await upsertRowToSheet(sheets, sheetTitleToUse, sheetId, rowData, namaKos);
 
-    let message = `Data Kos "${namaKos}" ${result.isUpdate ? "BERHASIL DIUPDATE" : "BERHASIL DISIMPAN"} di sheet "${namaKota}"`;
+    let message = `Data Kos "${namaKos}" ${result.isUpdate ? "BERHASIL DIUPDATE" : "BERHASIL DISIMPAN"} di sheet "${sheetTitleToUse}"`;
     if (sheetIsNew) {
       message += ` (sheet kota baru otomatis dibuat & diformat)`;
     }
     message += ".";
-
-    if (parsedData.tanggalIsFallback) {
-      message += " ⚠️ Format [TANGGAL INPUT] tidak valid (harus DD/MM/YYYY), menggunakan tanggal hari ini sebagai gantinya.";
-    }
 
     return { success: true, message };
   } catch (error: any) {
@@ -359,34 +389,30 @@ export async function getAllKos() {
           const rows = response.data.values || [];
           if (rows.length <= 1) return [];
 
-          return await Promise.all(
-            rows.slice(1).map(async (row: string[]) => {
-              const fotoRaw = row[8] || "";
-              const fotoLinks = fotoRaw.split(",").map((x: string) => x.trim()).filter(Boolean);
+          return rows.slice(1).map((row: string[]) => {
+            const fotoRaw = row[8] || "";
+            const fotoLinks = fotoRaw.split(",").map((x: string) => x.trim()).filter(Boolean);
 
-              const foto = await Promise.all(
-                fotoLinks.map(async (link: string) => ({
-                  url: link,
-                  name: await getFolderName(link),
-                })),
-              );
+            const foto = fotoLinks.map((link: string, idx: number) => ({
+              url: link,
+              name: `Foto ${idx + 1}`,
+            }));
 
-              return {
-                idKos: `${kotaTitle}-${row[0]}`,
-                no: row[0],
-                namaKos: row[1],
-                jenis: row[2],
-                tanggalInput: row[3],
-                alamat: row[4],
-                cp: row[5],
-                fasilitas: row[6],
-                harga: row[7],
-                foto,
-                ket: row[9],
-                kota: kotaTitle,
-              };
-            }),
-          );
+            return {
+              idKos: `${kotaTitle}-${row[0]}`,
+              no: row[0],
+              namaKos: row[1],
+              jenis: row[2],
+              tanggalInput: row[3],
+              alamat: row[4],
+              cp: row[5],
+              fasilitas: row[6],
+              harga: row[7],
+              foto,
+              ket: row[9],
+              kota: kotaTitle,
+            };
+          });
         } catch (err) {
           console.error(`Gagal mengambil data sheet kota "${kotaTitle}":`, err);
           return [];

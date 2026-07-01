@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { parseChatKos, JENIS_VALID } from "@/utils/parser";
+import { parseChatKos } from "@/utils/parser";
 import { uploadAndSaveKos, getAllKos } from "@/actions/kosActions";
 import Image from "next/image";
 
@@ -154,21 +154,11 @@ export default function Home() {
               <p>
                 <strong>Nama Kos:</strong> <span className="text-[#6B7340] font-semibold">{preview.NAMA_KOS || "-"}</span>
               </p>
-              <div className="flex items-center gap-2">
-                <strong>Jenis:</strong>
-                <select value={preview.JENIS || ""} onChange={() => {}} className="border border-gray-300 rounded px-2 py-1 text-xs bg-white">
-                  <option value="">- (tidak terdeteksi)</option>
-                  {JENIS_VALID.map((j) => (
-                    <option key={j} value={j}>
-                      {j}
-                    </option>
-                  ))}
-                </select>
-                <span className="text-xxs text-gray-400">(auto-deteksi, bisa override pakai tag [JENIS])</span>
-              </div>
+              <p>
+                <strong>Jenis:</strong> {preview.JENIS || "- (tidak terdeteksi)"}
+              </p>
               <p>
                 <strong>Tanggal Input:</strong> {preview.TANGGAL_INPUT || "-"}
-                {preview.tanggalIsFallback && <span className="text-amber-600 text-xxs ml-1">⚠️ format salah, dipakai tanggal hari ini</span>}
               </p>
               <p>
                 <strong>Alamat:</strong> {preview.ALAMAT || "-"}
@@ -223,15 +213,22 @@ export default function Home() {
         </div>
 
         {/* A. TAMPILAN LAPTOP / DESKTOP (TABEL) */}
+        {/* A. TAMPILAN LAPTOP / DESKTOP (TABEL) */}
         <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm text-left">
+          <table className="min-w-full table-fixed divide-y divide-gray-200 text-xs sm:text-sm text-left">
+            <colgroup>
+              <col className="w-[20%]" />
+              <col className="w-[12%]" />
+              <col className="w-[10%]" />
+              <col className="w-[20%]" />
+              <col className="w-[38%]" />
+            </colgroup>
             <thead className="bg-gray-50 text-gray-700 uppercase text-xxs font-semibold tracking-wider">
               <tr>
                 <th className="px-4 py-3">Nama Kos</th>
                 <th className="px-4 py-3">Kota</th>
                 <th className="px-4 py-3">Jenis</th>
                 <th className="px-4 py-3">Harga</th>
-                <th className="px-4 py-3">Foto</th>
                 <th className="px-4 py-3">Fasilitas</th>
               </tr>
             </thead>
@@ -239,27 +236,20 @@ export default function Home() {
               {currentKos.length > 0 ? (
                 currentKos.map((kos) => (
                   <tr key={kos.idKos} className="hover:bg-gray-50 transition">
-                    <td className="px-4 py-3 font-semibold text-gray-900">{kos.namaKos}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-900 truncate">{kos.namaKos}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 bg-[#F5F6EF] text-[#6B7340] border border-[#D7DDBA] rounded text-xs font-medium">{kos.kota}</span>
                     </td>
                     <td className="px-4 py-3">{kos.jenis}</td>
-                    <td className="px-4 py-3">{kos.harga}</td>
-                    <td className="px-4 py-3">
-                      {kos.foto?.map((foto: any, index: number) => (
-                        <a key={index} href={foto.url} target="_blank" rel="noreferrer" className="block text-[#6B7340] hover:underline">
-                          {foto.name}
-                        </a>
-                      ))}
-                    </td>
-                    <td className="px-4 py-3 truncate max-w-xs" title={kos.fasilitas}>
+                    <td className="px-4 py-3 truncate">{kos.harga}</td>
+                    <td className="px-4 py-3 truncate" title={kos.fasilitas}>
                       {kos.fasilitas}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-gray-400 bg-gray-50">
+                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400 bg-gray-50">
                     Data tidak ditemukan.
                   </td>
                 </tr>
@@ -287,18 +277,6 @@ export default function Home() {
                   <strong>Fasilitas:</strong> {kos.fasilitas}
                 </p>
 
-                <div className="pt-1 flex flex-wrap gap-1 items-center">
-                  <span className="font-semibold text-gray-700 mr-1">Foto ({kos.foto ? kos.foto.length : 0}):</span>
-                  {kos.foto && kos.foto.length > 0 ? (
-                    kos.foto.map((foto: any, index: number) => (
-                      <a key={index} href={foto.url} target="_blank" rel="noreferrer" className="bg-white border border-gray-300 rounded px-2 py-0.5 text-xxs font-medium text-[#6B7340] active:bg-[#F5F6EF]">
-                        {foto.name}
-                      </a>
-                    ))
-                  ) : (
-                    <span className="text-gray-400 text-xxs">Kosong</span>
-                  )}
-                </div>
               </div>
             ))
           ) : (
