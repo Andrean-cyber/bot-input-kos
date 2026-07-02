@@ -277,11 +277,21 @@ async function upsertRowToSheet(
   const existingIndex = dataRows.findIndex((row) => row[1] && row[1].toLowerCase().trim() === namaKos.toLowerCase().trim());
 
   const numColumns = HEADER.length;
+  const FOTO_INDEX_IN_ROW_WITHOUT_NO = 7; // index Foto di rowDataWithoutNo (Nama,Jenis,Tgl,Alamat,Nomor,Fasilitas,Harga,Foto,Ket)
+  const FOTO_INDEX_IN_FULL_ROW = 8; // index Foto di baris penuh sheet (NO,Nama,Jenis,Tgl,Alamat,Nomor,Fasilitas,Harga,Foto,Ket)
 
   if (existingIndex !== -1) {
     const noLama = dataRows[existingIndex][0];
+
+    // Kalau foto baru kosong, pertahankan foto lama supaya tidak ke-reset
+    const fotoBaru = rowDataWithoutNo[FOTO_INDEX_IN_ROW_WITHOUT_NO];
+    if (!fotoBaru || fotoBaru.trim() === "") {
+      rowDataWithoutNo = [...rowDataWithoutNo];
+      rowDataWithoutNo[FOTO_INDEX_IN_ROW_WITHOUT_NO] = dataRows[existingIndex][FOTO_INDEX_IN_FULL_ROW] || "";
+    }
+
     const fullRow = [noLama, ...rowDataWithoutNo];
-    const actualRowNumber = existingIndex + 2; // +1 header, +1 karena 1-indexed
+    const actualRowNumber = existingIndex + 2;
     const lastColLetter = String.fromCharCode(65 + fullRow.length - 1);
 
     await sheets.spreadsheets.values.update({
@@ -291,14 +301,13 @@ async function upsertRowToSheet(
       requestBody: { values: [fullRow] },
     });
 
-    // rowIndex untuk batchUpdate bersifat 0-based -> actualRowNumber (1-based) dikurangi 1
     await formatRow(sheets, sheetId, actualRowNumber - 1, numColumns);
 
     return { isUpdate: true };
   } else {
     const newNo = dataRows.length + 1;
     const fullRow = [newNo, ...rowDataWithoutNo];
-    const newRowNumber = dataRows.length + 2; // +1 header, +1 karena 1-indexed
+    const newRowNumber = dataRows.length + 2;
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
