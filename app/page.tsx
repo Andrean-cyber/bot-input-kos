@@ -10,6 +10,7 @@ export default function Home() {
   const [template, setTemplate] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [isCopyingPhotos, setIsCopyingPhotos] = useState(false);
 
   // State Live Preview
   const [preview, setPreview] = useState<ReturnType<typeof parseChatKos> | null>(null);
@@ -50,9 +51,18 @@ export default function Home() {
     setMessage("");
 
     const formData = new FormData(e.currentTarget);
+    const gdriveLinksValue = (formData.get("gdriveLinks") as string) || "";
+    const hasPhotoLinks = gdriveLinksValue
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean).length > 0;
+    setIsCopyingPhotos(hasPhotoLinks);
+
     const result = await uploadAndSaveKos(formData);
 
     setLoading(false);
+    setIsCopyingPhotos(false);
+
     if (result.success) {
       setMessage("✅ " + result.message);
       setTemplate("");
@@ -64,7 +74,12 @@ export default function Home() {
   };
 
   // Filter pencarian: nama kos, jenis kos, dan kota
-  const filteredKos = allKosData.filter((kos) => kos.namaKos?.toLowerCase().includes(searchQuery.toLowerCase()) || kos.kota?.toLowerCase().includes(searchQuery.toLowerCase()) || kos.jenis?.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredKos = allKosData.filter(
+    (kos) =>
+      kos.namaKos?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      kos.kota?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      kos.jenis?.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -100,7 +115,8 @@ export default function Home() {
                   placeholder={"[KOTA].."}
                   value={template}
                   onChange={(e) => setTemplate(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] font-mono text-xs sm:text-sm bg-gray-50 text-black"
+                  disabled={loading}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] font-mono text-xs sm:text-sm bg-gray-50 text-black disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -111,10 +127,13 @@ export default function Home() {
                   name="gdriveLinks"
                   rows={3}
                   placeholder="https://drive.google.com/view"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] text-xs sm:text-sm bg-gray-50 text-black"
+                  disabled={loading}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6B7340] text-xs sm:text-sm bg-gray-50 text-black disabled:opacity-60 disabled:cursor-not-allowed"
                 />
 
-                <p className="text-xs text-gray-500 mt-1">*Satu link per baris.</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  *Satu link per baris. Bisa link folder atau link file individual — proses penyalinan foto ke Drive bisa memakan waktu lebih lama jika jumlah file banyak. Kosongkan jika tidak ingin mengubah foto yang sudah ada (saat update).
+                </p>
               </div>
 
               <button
@@ -130,8 +149,19 @@ export default function Home() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
                 )}
-                {loading ? "Sedang Memproses & Sinkronisasi..." : "Proses Data Otomatis"}
+                {loading
+                  ? isCopyingPhotos
+                    ? "Menyalin Foto ke Drive & Menyimpan Data..."
+                    : "Sedang Memproses & Sinkronisasi..."
+                  : "Proses Data Otomatis"}
               </button>
+
+              {/* Progress bar indeterminate: hanya animasi, bukan persentase asli karena server action tidak stream progress */}
+              {loading && (
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full w-1/3 bg-[#6B7340] rounded-full animate-indeterminate-bar" />
+                </div>
+              )}
             </form>
           </div>
 
@@ -213,7 +243,6 @@ export default function Home() {
         </div>
 
         {/* A. TAMPILAN LAPTOP / DESKTOP (TABEL) */}
-        {/* A. TAMPILAN LAPTOP / DESKTOP (TABEL) */}
         <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-lg">
           <table className="min-w-full table-fixed divide-y divide-gray-200 text-xs sm:text-sm text-left">
             <colgroup>
@@ -276,7 +305,6 @@ export default function Home() {
                 <p className="line-clamp-2">
                   <strong>Fasilitas:</strong> {kos.fasilitas}
                 </p>
-
               </div>
             ))
           ) : (

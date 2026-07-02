@@ -2,6 +2,7 @@
 
 import { google } from "googleapis";
 import { parseChatKos, JENIS_VALID } from "@/utils/parser";
+import { copyKosPhotosToDrive } from "@/utils/driveFoto";
 
 const SPREADSHEET_ID = "1v-55v7jXKlHM1WUWRvwes68FnfjN2hBu0knH2LCwy4s";
 
@@ -342,9 +343,6 @@ export async function uploadAndSaveKos(formData: FormData) {
       throw new Error(`Nama kota "${namaKota}" tidak valid karena bentrok dengan sheet sistem.`);
     }
 
-    const imageUrls = gdriveLinksText.split("\n").map((link) => link.trim()).filter(Boolean);
-    const fotoUrl = imageUrls.join(", ");
-
     const sheets = await getSheetsInstance();
 
     const { isNew: sheetIsNew, actualTitle: sheetTitleToUse } = await ensureSheetExists(sheets, namaKota);
@@ -352,6 +350,32 @@ export async function uploadAndSaveKos(formData: FormData) {
 
     if (sheetId === null) {
       throw new Error(`Gagal menemukan sheet "${sheetTitleToUse}" untuk menyimpan data.`);
+    }
+
+    // Copy foto ke Google Drive: 2026 / <sheetTitleToUse> / <namaKos>
+    // Pakai sheetTitleToUse (bukan namaKota mentah) supaya konsisten dengan nama sheet
+    // yang sudah ada di spreadsheet, termasuk kalau beda casing.
+    let fotoUrl = "";
+    let driveWarning = "";
+
+    if (gdriveLinksText.trim()) {
+      try {
+        const copyResult = await copyKosPhotosToDrive(gdriveLinksText, sheetTitleToUse, namaKos);
+        if (copyResult) {
+          // Simpan link tiap file individual (kalau ada), fallback ke link folder kalau kosong.
+          fotoUrl = copyResult.folderUrl;
+
+          if (copyResult.skippedLinks.length > 0) {
+            driveWarning = ` (${copyResult.skippedLinks.length} link foto gagal disalin & dilewati)`;
+            console.warn(`Link gagal disalin untuk "${namaKos}":`, copyResult.skippedLinks);
+          }
+        }
+      } catch (driveErr: any) {
+        // Kalau proses copy ke Drive gagal total, jangan gagalkan seluruh proses simpan data.
+        // Data tetap disimpan ke sheet, tapi foto akan kosong / kolom lama dipertahankan (lihat upsertRowToSheet).
+        console.error(`Gagal menyalin foto untuk "${namaKos}":`, driveErr);
+        driveWarning = " (gagal menyalin foto ke Drive, data tetap disimpan)";
+      }
     }
 
     // Urutan: Nama Kos, Jenis, Tanggal Input, Alamat, Nomor, Fasilitas, Harga, Foto, Ket
@@ -373,6 +397,7 @@ export async function uploadAndSaveKos(formData: FormData) {
     if (sheetIsNew) {
       message += ` (sheet kota baru otomatis dibuat & diformat)`;
     }
+    message += driveWarning;
     message += ".";
 
     return { success: true, message };
